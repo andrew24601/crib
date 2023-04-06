@@ -1,0 +1,492 @@
+import Token, Tokeniser from ./tokeniser
+
+enum StatementKind(ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement,
+    ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement)
+
+enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract,
+    LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate,
+    Invalid)
+
+enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType)
+
+const sharedUnknownType := ParsedType(kind: TypeKind.unknownType, ref: nil, stmt: nil)
+
+class Expression(public kind: ExpressionKind, public left: Expression?, public right: Expression?)
+    public let value: string?
+    public let indexes: Expression[]
+    public let identifiers: string[]
+    public let type: ParsedType := sharedUnknownType
+    public let line := 0
+end
+
+class ParsedType(public kind: TypeKind, public ref: ParsedType?, public stmt: Statement?)
+    public let identifier: string?
+    public let parameters: ParsedType[]
+end
+
+class DefnArgument(public identifier: string, public type: ParsedType, public isPublic: bool)
+    
+end
+
+class ElseIfClause(public value: Expression, public block: Statement[]) end
+
+class Statement(public kind: StatementKind)
+    public let identifier: string?
+    public let type: ParsedType := sharedUnknownType
+    public let value: Expression?
+    public let lhs: Expression?
+    public let block: Statement[]
+    public let elseIf: ElseIfClause[]
+    public let elseBlock: Statement[]
+    public let identifierList: string[]
+    public let defnArguments: DefnArgument[]
+    public let isPublic: bool
+end
+
+class Parser(tokeniser: Tokeniser)
+    function acceptToken(token: Token): bool
+        const tk := tokeniser.nextToken()
+        if tk = token
+            return true
+        end
+        tokeniser.putback()
+        return false
+    end
+
+    function expectToken(expected: Token): string
+        const tk := tokeniser.nextToken()
+        if tk <> expected
+            panic(text: "expected " + tokeniser.line)
+        end
+        return tokeniser.value()
+    end
+
+    function expectIdentifier: string
+        return expectToken(expected: Token.tkIdentifier)
+    end
+
+    function parseType: ParsedType
+        let reference := false
+        const tk := tokeniser.nextToken()
+        let type: ParsedType := sharedUnknownType
+        const identifier := tokeniser.value()
+
+        if tk = Token.tkInt
+            type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
+        elseif tk = Token.tkBool
+            type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
+        elseif tk = Token.tkString
+            type := ParsedType(kind: TypeKind.stringType, ref: nil, stmt: nil)
+        elseif tk = Token.tkIdentifier
+            type := ParsedType(kind: TypeKind.objectType, ref: nil, stmt: nil)
+            type.identifier := identifier
+            if acceptToken(token: Token.tkLessThan)
+                type.parameters := ParsedType[]
+                type.parameters.push(value: parseType())
+                while acceptToken(token: Token.tkComma)
+                    type.parameters.push(value: parseType())
+                end
+                expectToken(expected: Token.tkGreaterThan)
+            end
+        end
+        while true
+            if acceptToken(token: Token.tkLeftBracket)
+                expectToken(expected: Token.tkRightBracket)
+                type := ParsedType(kind: TypeKind.arrayType, ref: type, stmt: nil)
+            elseif acceptToken(token: Token.tkCaret)
+                type := ParsedType(kind: TypeKind.pointerType, ref: type, stmt: nil)
+            elseif acceptToken(token: Token.tkQuestionMark)
+                type := ParsedType(kind: TypeKind.nullableType, ref: type, stmt: nil)
+            else
+                return type
+            end
+        end
+        return type
+    end
+
+    function parseStatement:Statement?
+        let tk := tokeniser.nextToken()
+        let stmt: Statement?
+        let identifier: string?
+        let type: ParsedType := sharedUnknownType
+        let value: Expression?
+        let block: Statement[]
+        let isPublic := false
+
+        if tk = Token.tkElse or tk = Token.tkElseif or tk = Token.tkEnd or tk = Token.tkUntil or tk = Token.tkEOF
+            tokeniser.putback()
+            return nil
+        end
+
+        if tk = Token.tkPublic
+            isPublic := true
+            tk := tokeniser.nextToken()
+        end
+
+        if tk = Token.tkConst or tk = Token.tkLet
+            identifier := expectIdentifier()
+            if acceptToken(token: Token.tkColon)
+                type := parseType()
+            end
+
+            if acceptToken(token: Token.tkAssign)
+                value := parseExpression()
+            else
+                if type?.kind = TypeKind.arrayType
+                    value := Expression(kind: ExpressionKind.ArrayInit, left: nil, right: nil)
+                elseif type?.kind = TypeKind.intType
+                    value := Expression(kind: ExpressionKind.IntConstant, left: nil, right: nil)
+                    value.value := "0"
+                elseif type?.kind = TypeKind.boolType
+                    value := Expression(kind: ExpressionKind.BoolConstant, left: nil, right: nil)
+                    value.value := "false"
+                else
+                    value := Expression(kind: ExpressionKind.NilConstant, left: nil, right: nil)
+                end
+            end
+
+            if tk = Token.tkConst
+                stmt := Statement(kind: StatementKind.ConstStatement)
+            else
+                stmt := Statement(kind: StatementKind.LetStatement)
+            end
+            stmt.value := value
+            stmt.identifier := identifier
+            stmt.type := type
+            stmt.isPublic := isPublic
+
+            return stmt
+        elseif tk = Token.tkEnum
+            stmt := Statement(kind: StatementKind.EnumStatement)
+            stmt.identifier := expectIdentifier()
+            expectToken(expected: Token.tkLeftParen)
+
+            stmt.identifierList := string[]
+
+            stmt.identifierList.push(value: expectIdentifier())
+            while acceptToken(token: Token.tkComma)
+                stmt.identifierList.push(value: expectIdentifier())
+            end
+            expectToken(expected: Token.tkRightParen)
+
+            return stmt
+        elseif tk = Token.tkClass
+            stmt := Statement(kind: StatementKind.ClassStatement)
+            stmt.identifier := expectIdentifier()
+
+            if acceptToken(token: Token.tkLeftParen)
+                stmt.defnArguments := parseDefnArguments()
+            end
+
+            stmt.block := parseBlock()
+            expectToken(expected: Token.tkEnd)
+            stmt.isPublic := isPublic
+
+            return stmt
+        elseif tk = Token.tkFunction
+            stmt := Statement(kind: StatementKind.FunctionStatement)
+            stmt.identifier := expectIdentifier()
+
+            if acceptToken(token: Token.tkLeftParen)
+                stmt.defnArguments := parseDefnArguments()
+            end
+            if acceptToken(token: Token.tkColon)
+                type := parseType()
+            else
+                type := ParsedType(kind: TypeKind.voidType, ref: nil, stmt: nil)
+            end
+
+            stmt.block := parseBlock()
+            expectToken(expected: Token.tkEnd)
+            stmt.isPublic := isPublic
+            stmt.type := type
+
+            return stmt
+        elseif tk = Token.tkReturn
+            stmt := Statement(kind: StatementKind.ReturnStatement)
+            stmt.value := parseExpression()
+            return stmt
+        elseif tk = Token.tkIf
+            stmt := Statement(kind: StatementKind.IfStatement)
+
+            stmt.value := parseExpression()
+            stmt.block := parseBlock()
+            while acceptToken(token: Token.tkElseif)
+                stmt.elseIf.push(value: ElseIfClause(value: parseExpression(), block: parseBlock()))
+            end
+            if acceptToken(token: Token.tkElse)
+                stmt.elseBlock := parseBlock()
+            end
+            expectToken(expected: Token.tkEnd)
+
+            return stmt
+        elseif tk = Token.tkWhile
+            stmt := Statement(kind: StatementKind.WhileStatement)
+            stmt.value := parseExpression()
+            stmt.block := parseBlock()
+            expectToken(expected: Token.tkEnd)
+
+            return stmt
+        elseif tk = Token.tkRepeat
+            stmt := Statement(kind: StatementKind.RepeatStatement)
+            stmt.block := parseBlock()
+            expectToken(expected: Token.tkUntil)
+            stmt.value := parseExpression()
+
+            return stmt
+        elseif tk = Token.tkFor
+            stmt:= Statement(kind: StatementKind.ForStatement)
+            stmt.identifier := expectIdentifier()
+            expectToken(expected: Token.tkOf)
+            stmt.value := parseExpression()
+            stmt.block := parseBlock()
+            expectToken(expected: Token.tkEnd)
+
+            return stmt
+        elseif tk = Token.tkImport
+            stmt := Statement(kind: StatementKind.ImportStatement)
+            stmt.identifierList.push(value: expectIdentifier())
+            while acceptToken(token: Token.tkComma)
+                stmt.identifierList.push(value: expectIdentifier())
+            end
+            expectToken(expected: Token.tkFrom)
+            if acceptToken(token: Token.tkDot)
+                stmt.identifier := "."
+            elseif acceptToken(token: Token.tkRangeInclusive)
+                stmt.identifier := ".."
+            else
+                stmt.identifier := expectIdentifier()
+            end
+            while acceptToken(token: Token.tkSlash)
+                if acceptToken(token: Token.tkRangeInclusive)
+                    stmt.identifier := stmt.identifier + "/.."
+                else
+                    stmt.identifier := stmt.identifier + "/" + expectIdentifier()
+                end
+            end
+            return stmt
+        end
+
+        tokeniser.putback()
+
+        value := parseExpression()
+
+        if acceptToken(token: Token.tkAssign)
+            stmt := Statement(kind: StatementKind.AssignStatement)
+            stmt.value := parseExpression()
+            stmt.lhs := value
+            return stmt
+        end
+
+        stmt := Statement(kind: StatementKind.ExpressionStatement)
+        stmt.value := value
+        return stmt
+    end
+
+    public function parseBlock(): Statement[]
+        const result: Statement[]
+
+        let stmt: Statement? := parseStatement()
+        while stmt <> nil
+            result.push(value: stmt)
+            stmt := parseStatement()
+        end
+
+        return result
+    end
+
+    function parseDefnArgument(): DefnArgument
+        let isPublic := false
+        if acceptToken(token: Token.tkPublic)
+            isPublic := true
+        end
+        const identifier := expectIdentifier()
+        expectToken(expected: Token.tkColon)
+        const type := parseType()
+        return DefnArgument(identifier, type, isPublic)
+    end
+
+    function parseDefnArguments(): DefnArgument[]
+        const result: DefnArgument[]
+        if acceptToken(token: Token.tkRightParen)
+            return result
+        end
+        result.push(value: parseDefnArgument())
+        while acceptToken(token: Token.tkComma)
+            result.push(value: parseDefnArgument())
+        end
+        expectToken(expected: Token.tkRightParen)
+        return result
+    end
+
+    function parseExpression: Expression
+        let left := parseAndExpression()
+        let tk := tokeniser.nextToken()
+        while tk = Token.tkOr
+            left := Expression(kind: ExpressionKind.Or, left, right: parseAndExpression())
+            tk := tokeniser.nextToken()
+        end
+        tokeniser.putback()
+        return left
+    end
+
+    function parseAndExpression: Expression
+        let left := parseComparisonExpression()
+        let tk := tokeniser.nextToken()
+        while tk = Token.tkAnd
+            left := Expression(kind: ExpressionKind.And, left, right: parseComparisonExpression())
+            tk := tokeniser.nextToken()
+        end
+        tokeniser.putback()
+        return left
+    end
+
+    function parseComparisonExpression: Expression
+        let left := parseAddSub()
+        let tk := tokeniser.nextToken()
+
+        if tk = Token.tkLessThan
+            left := Expression(kind: ExpressionKind.LessThan, left, right: parseAddSub())
+        elseif tk = Token.tkLessThanEquals
+            left := Expression(kind: ExpressionKind.LessThanEquals, left, right: parseAddSub())
+        elseif tk = Token.tkEquals
+            left := Expression(kind: ExpressionKind.Equals, left, right: parseAddSub())
+        elseif tk = Token.tkNotEquals
+            left := Expression(kind: ExpressionKind.NotEquals, left, right: parseAddSub())
+        elseif tk = Token.tkGreaterThan
+            left := Expression(kind: ExpressionKind.GreaterThan, left, right: parseAddSub())
+        elseif tk = Token.tkGreaterThanEquals
+            left := Expression(kind: ExpressionKind.GreaterThanEquals, left, right: parseAddSub())
+        else
+            tokeniser.putback()
+        end
+        return left
+    end
+
+    function parseAddSub: Expression
+        let left := parseTerm()
+        let tk := tokeniser.nextToken()
+        while tk = Token.tkPlus or tk = Token.tkMinus
+            if tk = Token.tkPlus
+                left := Expression(kind: ExpressionKind.Add, left, right: parseTerm())
+            else
+                left := Expression(kind: ExpressionKind.Subtract, left, right: parseTerm())
+            end
+            tk := tokeniser.nextToken()
+        end
+        tokeniser.putback()
+        return left
+    end
+
+    function parseTerm: Expression
+        let left := parseFactor()
+        let tk := tokeniser.nextToken()
+        while tk = Token.tkTimes or tk = Token.tkSlash
+            if tk = Token.tkTimes
+                left := Expression(kind: ExpressionKind.Multiply, left, right: parseFactor())
+            else
+                left := Expression(kind: ExpressionKind.Divide, left, right: parseFactor())
+            end
+            tk := tokeniser.nextToken()
+        end
+        tokeniser.putback()
+        return left
+    end
+
+    function parseFactor: Expression
+        const tk := tokeniser.nextToken()
+        let e:Expression?
+        let p:Expression?
+        let ident: string?
+        if tk = Token.tkIntConstant
+            e := Expression(kind: ExpressionKind.IntConstant, left: nil, right: nil)
+            e.value := tokeniser.value()
+        elseif tk = Token.tkDoubleConstant
+            e := Expression(kind: ExpressionKind.DoubleConstant, left: nil, right: nil)
+            e.value := tokeniser.value()
+        elseif tk = Token.tkStringConstant
+            e := Expression(kind: ExpressionKind.StringConstant, left: nil, right: nil)
+            e.value := tokeniser.value()
+        elseif tk = Token.tkIdentifier
+            e := Expression(kind: ExpressionKind.Identifier, left: nil, right: nil)
+            e.value := tokeniser.value()
+        elseif tk = Token.tkLeftParen
+            e := parseExpression()
+            expectToken(expected: Token.tkRightParen)
+        elseif tk = Token.tkNot
+            e := Expression(kind: ExpressionKind.Not, left: parseFactor(), right: nil)
+        elseif tk = Token.tkMinus
+            e := Expression(kind: ExpressionKind.Negate, left: parseFactor(), right: nil)
+        elseif tk = Token.tkBoolConstant
+            e := Expression(kind: ExpressionKind.BoolConstant, left: nil, right: nil)
+            e.value := tokeniser.value()
+        elseif tk = Token.tkString
+            e := Expression(kind: ExpressionKind.IntrinsicType, left: nil, right: nil)
+            e.value := tokeniser.value()
+        elseif tk = Token.tkNil
+            e := Expression(kind: ExpressionKind.NilConstant, left: nil, right: nil)
+            e.value := tokeniser.value()
+        else
+            panic(message: "Unexpected token: " + tokeniser.value())
+            e:= Expression(kind: ExpressionKind.Invalid, left: nil, right: nil)
+        end
+
+        while true
+            if acceptToken(token: Token.tkDot)
+                e := Expression(kind: ExpressionKind.Dot, left: e, right: nil)
+                e.line := tokeniser.line
+                e.value := expectIdentifier()
+            elseif acceptToken(token: Token.tkOptDot)
+                e := Expression(kind: ExpressionKind.OptDot, left: e, right: nil)
+                e.line := tokeniser.line
+                e.value := expectIdentifier()
+            elseif acceptToken(token: Token.tkBang)
+                e := Expression(kind: ExpressionKind.Bang, left: e, right: nil)
+            elseif acceptToken(token: Token.tkLeftParen)
+                e:= Expression(kind: ExpressionKind.Invoke, left: e, right: nil)
+                e.line := tokeniser.line
+                e.indexes := Expression[]
+                e.identifiers := string[]
+                if not acceptToken(token: Token.tkRightParen)
+                    repeat
+                        ident := expectIdentifier()
+                        if acceptToken(token: Token.tkColon)
+                            e.identifiers.push(value: ident)
+                            e.indexes.push(value: parseExpression())
+                        else
+                            p := Expression(kind: ExpressionKind.Identifier, left: nil, right: nil)
+                            p.value := ident
+                            e.indexes.push(value: p)
+                            e.identifiers.push(value: ident)
+                        end
+                    until not acceptToken(token: Token.tkComma)
+                    expectToken(expected: Token.tkRightParen) 
+                end
+            elseif acceptToken(token: Token.tkLeftBracket)
+                e:= Expression(kind: ExpressionKind.Index, left: e, right: nil)
+                e.line := tokeniser.line
+                e.indexes := Expression[]
+                if not acceptToken(token: Token.tkRightBracket)
+
+                    e.indexes.push(value: parseExpression())
+
+                    if acceptToken(token: Token.tkRangeInclusive)
+                        e.kind := ExpressionKind.Slice
+                    elseif acceptToken(token: Token.tkRangeExclusive)
+                        e.kind := ExpressionKind.Slice
+                        e.indexes.push(value: parseExpression())
+                    else
+                        while acceptToken(token: Token.tkComma)
+                            e.indexes.push(value: parseExpression())
+                        end
+                    end
+                    expectToken(expected: Token.tkRightBracket)
+                end
+            else
+                return e!
+            end
+        end
+
+        return e!
+    end
+end

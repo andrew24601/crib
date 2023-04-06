@@ -1,7 +1,9 @@
-import { Parser, generateTS, descopeCode, class_Statement, StatementKind } from "./bootstrap"
+import { descopeCode } from "./bootstrap"
 import { Tokeniser } from "./tokeniser"
+import { Parser, class_Statement, StatementKind } from "./parser"
 import { readFileSync, writeFileSync } from "fs";
 import { StringMap } from "./runtime"
+import { generateTS } from "./generateTS"
 
 function parseModule(path: string): class_Statement[] {
     const text = readFileSync(path, "utf-8");
@@ -35,7 +37,7 @@ export function generateTSImport(stmt: class_Statement) {
     return `import { ${imports.join(", ")}} from "${stmt.identifier}"`
 }
 
-const block = parseModule("./simple.crib");
+const block = parseModule("./generateTS.crib");
 
 const initialScope = StringMap();
 
@@ -45,4 +47,4 @@ descopeCode([], block, initialScope, false)
 
 const generated = generateTS(block);
 
-writeFileSync("bootstrap.ts", generated.result.join("\n"));
+writeFileSync("generateTS.ts", generated.result.join("\n"));
