@@ -51,7 +51,7 @@ lastToken = parseNextToken();
 return lastToken;
 }
 _o.nextToken = nextToken;
-function putback():any {
+function putback():void {
 hasPutback = true;
 }
 _o.putback = putback;
@@ -229,7 +229,7 @@ return _o;
 interface class_Tokeniser {
 line:any;
 nextToken():Token;
-putback():any;
+putback():void;
 value():string;
 }
 export function Expression(kind:ExpressionKind,left:class_Expression | null,right:class_Expression | null) {
@@ -368,9 +368,6 @@ const tk: any = tokeniser.nextToken();
 let type: class_ParsedType = sharedUnknownType;
  // unknown
 const identifier: any = tokeniser.value();
-if (acceptToken(Token.tkCaret)) {
-reference = true;
-}
 if (tk == Token.tkInt) {
 type = ParsedType(TypeKind.intType, null, null);
 } else if (tk == Token.tkBool) {
@@ -759,7 +756,7 @@ return _o;
 interface class_Parser {
 parseBlock():class_Statement[];
 }
-export function InferTypes(block:any,parent:class_StringMap):any {
+export function InferTypes(block:class_Statement[],parent:class_StringMap):void {
  // unknown
 const scope: any = StringMap(parent);
 for (const stmt of block) {
@@ -783,14 +780,14 @@ arg.type = resolve(arg.type);
 for (const stmt of block) {
 if (stmt.kind == StatementKind.LetStatement) {
 if (stmt.type == null) {
-stmt.type = infer(stmt.value);
+stmt.type = infer(stmt.value!);
 }
 if (stmt.type != null) {
 stmt.type = resolve(stmt.type);
 }
 } else if (stmt.kind == StatementKind.ConstStatement) {
 if (stmt.type == null) {
-stmt.type = infer(stmt.value);
+stmt.type = infer(stmt.value!);
 }
 if (stmt.type != null) {
 stmt.type = resolve(stmt.type);
@@ -933,7 +930,7 @@ panic("Type " + t.identifier + " is not a class or enum");
 return t;
 }
 }
-export function descopeCode(args:any,block:any,outerScope:class_StringMap,forClass:boolean):any {
+export function descopeCode(args:class_DefnArgument[],block:class_Statement[],outerScope:class_StringMap,forClass:boolean):void {
  // unknown
 let scopeSet: any = StringMap(outerScope);
 for (const arg of args) {
@@ -953,7 +950,7 @@ scopeSet.delete(stmt.identifier);
 }
 }
 descopeBlock(block);
-function descopeBlock(block:any):any {
+function descopeBlock(block:class_Statement[]):void {
  // unknown
 let idx: any = 0;
 while (idx < block.length) {
@@ -981,7 +978,7 @@ stmt.value = descopeExpression(stmt.value);
 stmt.value = descopeExpression(stmt.value);
 } else if (stmt.kind == StatementKind.AssignStatement) {
 stmt.value = descopeExpression(stmt.value);
-stmt.lhs = descopeExpression(stmt.lhs);
+stmt.lhs = descopeExpression(stmt.lhs!);
 }
 }
 }
@@ -1040,15 +1037,15 @@ return "nullable<" + formatParsedType(type.ref) + ">";
 return "unknown";
 }
 }
-export function generateTS(block:any) {
+export function generateTS(block:class_Statement[]) {
 const _o = {} as class_generateTS;
  // unknown
 _o.result = [];
 _o.result.push('import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"');
-function dumpType(type:class_ParsedType):any {
+function dumpType(type:class_ParsedType):void {
 _o.result.push(" // " + formatParsedType(type));
 }
-function generateBlock(block:any,forClass:boolean,atRoot:boolean):any {
+function generateBlock(block:class_Statement[],forClass:boolean,atRoot:boolean):void {
  // unknown
 let exportClassifier: any = "";
 if (atRoot) {
@@ -1058,52 +1055,52 @@ for (const stmt of block) {
 if (stmt.kind == StatementKind.ConstStatement) {
 dumpType(stmt.type);
 if (forClass && stmt.isPublic) {
-_o.result.push("_o." + stmt.identifier + " = " + generateJSExpression(stmt.value) + ";");
+_o.result.push("_o." + stmt.identifier + " = " + generateJSExpression(stmt.value!) + ";");
 } else if (stmt.type != null) {
-_o.result.push("const " + stmt.identifier + ": " + generateTSType(stmt.type) + " = " + generateJSExpression(stmt.value) + ";");
+_o.result.push("const " + stmt.identifier + ": " + generateTSType(stmt.type) + " = " + generateJSExpression(stmt.value!) + ";");
 } else {
-_o.result.push("const " + stmt.identifier + " = " + generateJSExpression(stmt.value) + ";");
+_o.result.push("const " + stmt.identifier + " = " + generateJSExpression(stmt.value!) + ";");
 }
 } else if (stmt.kind == StatementKind.LetStatement) {
 dumpType(stmt.type);
 if (forClass && stmt.isPublic) {
-_o.result.push("_o." + stmt.identifier + " = " + generateJSExpression(stmt.value) + ";");
+_o.result.push("_o." + stmt.identifier + " = " + generateJSExpression(stmt.value!) + ";");
 } else {
 if (stmt.type != null) {
-_o.result.push("let " + stmt.identifier + ": " + generateTSType(stmt.type) + " = " + generateJSExpression(stmt.value) + ";");
+_o.result.push("let " + stmt.identifier + ": " + generateTSType(stmt.type) + " = " + generateJSExpression(stmt.value!) + ";");
 } else {
-_o.result.push("let " + stmt.identifier + " = " + generateJSExpression(stmt.value) + ";");
+_o.result.push("let " + stmt.identifier + " = " + generateJSExpression(stmt.value!) + ";");
 }
 }
 } else if (stmt.kind == StatementKind.IfStatement) {
-_o.result.push("if (" + generateJSExpression(stmt.value) + ") {");
+_o.result.push("if (" + generateJSExpression(stmt.value!) + ") {");
 generateBlock(stmt.block, false, false);
 for (const ei of stmt.elseIf) {
 _o.result.push("} else if (" + generateJSExpression(ei.value) + ") {");
 generateBlock(ei.block, false, false);
 }
-if (stmt.elseBlock != 0 && stmt.elseBlock.length > 0) {
+if (stmt.elseBlock.length > 0) {
 _o.result.push("} else {");
 generateBlock(stmt.elseBlock, false, false);
 }
 _o.result.push("}");
 } else if (stmt.kind == StatementKind.WhileStatement) {
-_o.result.push("while (" + generateJSExpression(stmt.value) + ") {");
+_o.result.push("while (" + generateJSExpression(stmt.value!) + ") {");
 generateBlock(stmt.block, false, false);
 _o.result.push("}");
 } else if (stmt.kind == StatementKind.RepeatStatement) {
 _o.result.push("do {");
 generateBlock(stmt.block, false, false);
-_o.result.push("} while (!(" + generateJSExpression(stmt.value) + "))");
+_o.result.push("} while (!(" + generateJSExpression(stmt.value!) + "))");
 } else if (stmt.kind == StatementKind.ForStatement) {
-_o.result.push("for (const " + stmt.identifier + " of " + generateJSExpression(stmt.value) + ") {");
+_o.result.push("for (const " + stmt.identifier + " of " + generateJSExpression(stmt.value!) + ") {");
 generateBlock(stmt.block, false, false);
 _o.result.push("}");
 } else if (stmt.kind == StatementKind.AssignStatement) {
-if (stmt.lhs.kind == ExpressionKind.Index) {
-_o.result.push("__index_set(" + generateJSExpression(stmt.lhs.left) + ", " + generateJSExpression(__index_get(stmt.lhs.indexes, 0)) + ", " + generateJSExpression(stmt.value) + ");");
+if (stmt.lhs!.kind == ExpressionKind.Index) {
+_o.result.push("__index_set(" + generateJSExpression(stmt.lhs!.left!) + ", " + generateJSExpression(__index_get(stmt.lhs!.indexes, 0)) + ", " + generateJSExpression(stmt.value!) + ");");
 } else {
-_o.result.push(generateJSExpression(stmt.lhs) + " = " + generateJSExpression(stmt.value) + ";");
+_o.result.push(generateJSExpression(stmt.lhs!) + " = " + generateJSExpression(stmt.value!) + ";");
 }
 } else if (stmt.kind == StatementKind.ClassStatement) {
 _o.result.push(exportClassifier + "function " + stmt.identifier + "(" + generateDefnArguments(stmt.defnArguments) + ") {");
@@ -1129,15 +1126,15 @@ _o.result.push("enum " + stmt.identifier + " {");
 _o.result.push(generateJSEnumValues(stmt));
 _o.result.push("};");
 } else if (stmt.kind == StatementKind.ReturnStatement) {
-_o.result.push("return " + generateJSExpression(stmt.value) + ";");
+_o.result.push("return " + generateJSExpression(stmt.value!) + ";");
 } else if (stmt.kind == StatementKind.ExpressionStatement) {
-_o.result.push(generateJSExpression(stmt.value) + ";");
+_o.result.push(generateJSExpression(stmt.value!) + ";");
 } else {
 _o.result.push("unknown");
 }
 }
 }
-function generateTSInterface(definition:class_Statement):any {
+function generateTSInterface(definition:class_Statement):void {
 if (definition.kind == StatementKind.ClassStatement) {
 _o.result.push("interface class_" + definition.identifier + " {");
 for (const arg of definition.defnArguments) {
@@ -1238,6 +1235,8 @@ return "boolean";
 return "string";
 } else if (type.kind == TypeKind.arrayType) {
 return generateTSType(type.ref) + "[]";
+} else if (type.kind == TypeKind.pointerType) {
+return generateTSType(type.ref);
 } else if (type.kind == TypeKind.nullableType) {
 return generateTSType(type.ref) + " | null";
 } else if (type.kind == TypeKind.objectType) {
@@ -1247,6 +1246,8 @@ return type.identifier;
 return "class_" + type.identifier;
 } else if (type.kind == TypeKind.functionType) {
 return "Function";
+} else if (type.kind == TypeKind.voidType) {
+return "void";
 } else {
 return "any";
 }
@@ -1254,8 +1255,8 @@ return "any";
 export function generateDefnArgument(arg:class_DefnArgument):string {
 return arg.identifier + ":" + generateTSType(arg.type);
 }
-export function generateDefnArguments(args:any):string {
-if (args == 0 || args.length == 0) {
+export function generateDefnArguments(args:class_DefnArgument[]):string {
+if (args.length == 0) {
 return "";
 }
  // unknown
@@ -1268,7 +1269,7 @@ idx = idx + 1;
 }
 return result;
 }
-export function generateArguments(args:any):string {
+export function generateArguments(args:class_Expression[]):string {
 if (args.length == 0) {
 return "";
 }

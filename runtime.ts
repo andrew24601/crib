@@ -9,19 +9,19 @@ export interface class_StringMap
     clear(): void;
 }
 
-export function __index_get(arr, idx) {
+export function __index_get(arr:any, idx: number) {
     if (typeof arr === "string")
         return arr.charCodeAt(idx);
     return arr[idx];
 }
 
-export function __index_set(arr, idx, value) {
+export function __index_set(arr:any, idx:number, value: any) {
     if (typeof arr === "string")
         throw new Error("Not supported")
     arr[idx] = value;
 }
 
-export function __slice(arr, start, end) {
+export function __slice(arr:any, start:number, end:number) {
     if (typeof arr === "string")
         return arr.substring(start, end)
     throw new Error("Not supported")
@@ -31,10 +31,10 @@ export function StringSet() {
     const v = new Set();
 
     return {
-        add(value) {
+        add(value:any) {
             v.add(value)
         },
-        has(value) {
+        has(value:any) {
             return v.has(value)
         }
     }
@@ -72,7 +72,7 @@ export function StringMap(init?: class_StringMap): class_StringMap {
     }
 }
 
-export function panic(message) {
+export function panic(message: string) {
     console.log(message);
 //    throw new Error(message);
 }

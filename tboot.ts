@@ -11,7 +11,7 @@ const initialScope = StringMap();
 
 //const validator = ResolveTypes(block, initialScope);
 
-descopeCode([], block, null, false)
+descopeCode([], block, initialScope, false)
 
 const generated = generateTS(block);
 
