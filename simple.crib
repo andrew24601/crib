@@ -2,7 +2,7 @@ enum Token(tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStri
     tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret,
     tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign,
     tkAnd, tkOr, tkConst, tkLet, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString,
-    tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark,
+    tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang,
     tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals,
     tkEOF, tkInvalid)
 
@@ -10,9 +10,12 @@ enum StatementKind(ConstStatement, LetStatement, EnumStatement, ClassStatement, 
     ReturnStatement, IfStatement, WhileStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement)
 
 enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract,
-    LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate)
+    LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate,
+    Invalid)
 
-enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, invalidType)
+enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType)
+
+const sharedUnknownType := ParsedType(kind: TypeKind.unknownType, ref: nil, stmt: nil)
 
 function isWhitespace(ch: int): bool
     if ch = 32 or ch = 13 or ch = 10 or ch = 9
@@ -35,16 +38,16 @@ end
 
 class Tokeniser(text: string^)
     const length := text.length
-    let pos
-    let tokenStart
+    let pos := 0
+    let tokenStart := 0
     let hasPutback := false
-    let lastToken: Token
+    let lastToken: Token?
     public let line := 1
 
     public function nextToken(): Token
         if hasPutback
             hasPutback := false
-            return lastToken
+            return lastToken!
         end
         lastToken := parseNextToken()
         return lastToken
@@ -59,7 +62,7 @@ class Tokeniser(text: string^)
     end
 
     function parseNextToken(): Token
-        let ident: string
+        let ident: string?
     
         while pos < length and isWhitespace(ch: text[pos])
             if text[pos] = 10
@@ -160,6 +163,8 @@ class Tokeniser(text: string^)
             match := Token.tkLeftParen
         elseif ch = 41
             match := Token.tkRightParen
+        elseif ch = 33
+            match := Token.tkBang
         elseif ch = 59
             match := Token.tkSemiColon
         elseif ch = 44
@@ -231,16 +236,16 @@ class Tokeniser(text: string^)
     end
 end
 
-class Expression(public kind: ExpressionKind, public left: Expression, public right: Expression)
+class Expression(public kind: ExpressionKind, public left: Expression?, public right: Expression?)
     public let value: string?
     public let indexes: Expression[]
     public let identifiers: string[]
-    public let type: ParsedType?
+    public let type: ParsedType := sharedUnknownType
     public let line := 0
 end
 
-class ParsedType(public kind: TypeKind, public ref: ParsedType, public stmt: Statement^)
-    public let identifier: string
+class ParsedType(public kind: TypeKind, public ref: ParsedType?, public stmt: Statement?)
+    public let identifier: string?
     public let parameters: ParsedType[]
 end
 
@@ -248,14 +253,11 @@ class DefnArgument(public identifier: string, public type: ParsedType, public is
     
 end
 
-class ElseIfClause()
-    public let value: Expression
-    public let block: Statement[]
-end
+class ElseIfClause(public value: Expression, public block: Statement[]) end
 
 class Statement(public kind: StatementKind)
-    public let identifier: string
-    public let type: ParsedType? := nil
+    public let identifier: string?
+    public let type: ParsedType := sharedUnknownType
     public let value: Expression?
     public let lhs: Expression?
     public let block: Statement[]
@@ -291,7 +293,7 @@ class Parser(tokeniser: Tokeniser)
     function parseType: ParsedType
         let reference := false
         const tk := tokeniser.nextToken()
-        let type: ParsedType
+        let type: ParsedType := sharedUnknownType
         const identifier := tokeniser.value()
         if acceptToken(token: Token.tkCaret)
             reference := true
@@ -330,14 +332,13 @@ class Parser(tokeniser: Tokeniser)
         return type
     end
 
-    function parseStatement:Statement
+    function parseStatement:Statement?
         let tk := tokeniser.nextToken()
-        let stmt: Statement
-        let identifier: string
-        let type: ParsedType
-        let value: Expression
+        let stmt: Statement?
+        let identifier: string?
+        let type: ParsedType := sharedUnknownType
+        let value: Expression?
         let block: Statement[]
-        let clause: ElseIfClause
         let isPublic := false
 
         if tk = Token.tkElse or tk = Token.tkElseif or tk = Token.tkEnd or tk = Token.tkUntil or tk = Token.tkEOF
@@ -363,7 +364,10 @@ class Parser(tokeniser: Tokeniser)
                     value := Expression(kind: ExpressionKind.ArrayInit, left: nil, right: nil)
                 elseif type?.kind = TypeKind.intType
                     value := Expression(kind: ExpressionKind.IntConstant, left: nil, right: nil)
-                    value.value := "0"                    
+                    value.value := "0"
+                elseif type?.kind = TypeKind.boolType
+                    value := Expression(kind: ExpressionKind.BoolConstant, left: nil, right: nil)
+                    value.value := "false"
                 else
                     value := Expression(kind: ExpressionKind.NilConstant, left: nil, right: nil)
                 end
@@ -435,12 +439,8 @@ class Parser(tokeniser: Tokeniser)
 
             stmt.value := parseExpression()
             stmt.block := parseBlock()
-            stmt.elseIf := ElseIfClause[]
             while acceptToken(token: Token.tkElseif)
-                clause := ElseIfClause()
-                clause.value := parseExpression()
-                clause.block := parseBlock()
-            stmt.elseIf.push(value: clause)
+                stmt.elseIf.push(value: ElseIfClause(value: parseExpression(), block: parseBlock()))
             end
             if acceptToken(token: Token.tkElse)
                 stmt.elseBlock := parseBlock()
@@ -490,11 +490,9 @@ class Parser(tokeniser: Tokeniser)
     end
 
     public function parseBlock(): Statement[]
-        const result := Statement[]
+        const result: Statement[]
 
-        let stmt: Statement
-
-        stmt := parseStatement()
+        let stmt: Statement? := parseStatement()
         while stmt <> nil
             result.push(value: stmt)
             stmt := parseStatement()
@@ -515,7 +513,7 @@ class Parser(tokeniser: Tokeniser)
     end
 
     function parseDefnArguments(): DefnArgument[]
-        const result := DefnArgument[]
+        const result: DefnArgument[]
         if acceptToken(token: Token.tkRightParen)
             return result
         end
@@ -603,9 +601,9 @@ class Parser(tokeniser: Tokeniser)
 
     function parseFactor: Expression
         const tk := tokeniser.nextToken()
-        let e:Expression
-        let p:Expression
-        let ident: string
+        let e:Expression?
+        let p:Expression?
+        let ident: string?
         if tk = Token.tkIntConstant
             e := Expression(kind: ExpressionKind.IntConstant, left: nil, right: nil)
             e.value := tokeniser.value()
@@ -636,6 +634,7 @@ class Parser(tokeniser: Tokeniser)
             e.value := tokeniser.value()
         else
             panic(message: "Unexpected token: " + tokeniser.value())
+            e:= Expression(kind: ExpressionKind.Invalid, left: nil, right: nil)
         end
 
         while true
@@ -647,6 +646,8 @@ class Parser(tokeniser: Tokeniser)
                 e := Expression(kind: ExpressionKind.OptDot, left: e, right: nil)
                 e.line := tokeniser.line
                 e.value := expectIdentifier()
+            elseif acceptToken(token: Token.tkBang)
+                e := Expression(kind: ExpressionKind.Bang, left: e, right: nil)
             elseif acceptToken(token: Token.tkLeftParen)
                 e:= Expression(kind: ExpressionKind.Invoke, left: e, right: nil)
                 e.line := tokeniser.line
@@ -688,29 +689,11 @@ class Parser(tokeniser: Tokeniser)
                     expectToken(expected: Token.tkRightBracket)
                 end
             else
-                return e
+                return e!
             end
         end
 
-        return e
-    end
-end
-
-class TypeScope(parent: TypeScope^)
-    public const types: Statement^[]
-
-    public function findType(identifier: string): Statement^
-        for t of types
-            if t.identifier = identifier
-                return t
-            end
-        end
-
-        if parent <> nil
-            return parent.findType(identifier)
-        end
-
-        return nil
+        return e!
     end
 end
 
@@ -773,45 +756,45 @@ function InferTypes(block:Statement[]^, parent: StringMap)
         elseif expr.kind = ExpressionKind.DoubleConstant
             expr.type := ParsedType(kind: TypeKind.doubleType, ref: nil, stmt: nil)
         elseif expr.kind = ExpressionKind.LessThan or expr.kind = ExpressionKind.LessThanEquals or expr.kind = ExpressionKind.GreaterThan or expr.kind = ExpressionKind.GreaterThanEquals or expr.kind = ExpressionKind.Equals or expr.kind = ExpressionKind.NotEquals
-            infer(expr: expr.left)
-            infer(expr: expr.right)
+            infer(expr: expr.left!)
+            infer(expr: expr.right!)
             expr.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
         elseif expr.kind = ExpressionKind.And or expr.kind = ExpressionKind.Or
-            infer(expr: expr.left)
-            infer(expr: expr.right)
+            infer(expr: expr.left!)
+            infer(expr: expr.right!)
             expr.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
         elseif expr.kind = ExpressionKind.Add
-            infer(expr: expr.left)
-            infer(expr: expr.right)
-            if expr.left.type.kind = TypeKind.stringType or expr.right.type.kind = TypeKind.stringType
+            infer(expr: expr.left!)
+            infer(expr: expr.right!)
+            if expr.left!.type.kind = TypeKind.stringType or expr.right!.type.kind = TypeKind.stringType
                 expr.type := ParsedType(kind: TypeKind.stringType, ref: nil, stmt: nil)
-            elseif expr.left.type.kind = TypeKind.doubleType or expr.right.type.kind = TypeKind.doubleType
+            elseif expr.left!.type.kind = TypeKind.doubleType or expr.right!.type.kind = TypeKind.doubleType
                 expr.type := ParsedType(kind: TypeKind.doubleType, ref: nil, stmt: nil)
             else
                 expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
             end
         elseif expr.kind = ExpressionKind.Subtract or expr.kind = ExpressionKind.Multiply or expr.kind = ExpressionKind.Divide or expr.kind = ExpressionKind.Modulo
-            infer(expr: expr.left)
-            infer(expr: expr.right)
-            if expr.left.type.kind = TypeKind.doubleType or expr.right.type.kind = TypeKind.doubleType
+            infer(expr: expr.left!)
+            infer(expr: expr.right!)
+            if expr.left!.type.kind = TypeKind.doubleType or expr.right!.type.kind = TypeKind.doubleType
                 expr.type := ParsedType(kind: TypeKind.doubleType, ref: nil, stmt: nil)
             else
                 expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
             end
         elseif expr.kind = ExpressionKind.Not
-            infer(expr: expr.left)
+            infer(expr: expr.left!)
             expr.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
         elseif expr.kind = ExpressionKind.Identifier
             if scope.has(key: expr.value)
                 expr.type := scope.get(identifier: expr.value)
             end
         elseif expr.kind = ExpressionKind.Dot or expr.kind = ExpressionKind.OptDot
-            infer(expr: expr.left)
-            if expr.left.type.kind = TypeKind.enumDefinitionType
+            infer(expr: expr.left!)
+            if expr.left!.type.kind = TypeKind.enumDefinitionType
                 expr.type := ParsedType(kind: TypeKind.enumType, ref: nil, stmt: nil)
-            elseif expr.left.type.kind = TypeKind.objectType
-                expr.type := getFieldType(classDefinition: expr.left.type.ref.stmt, identifier: expr.value)
-            elseif expr.left.type.kind = TypeKind.stringType
+            elseif expr.left!.type.kind = TypeKind.objectType
+                expr.type := getFieldType(classDefinition: expr.left!.type.ref!.stmt!, identifier: expr.value!)
+            elseif expr.left!.type.kind = TypeKind.stringType
                 if expr.value = "length"
                     expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
                 else
@@ -821,28 +804,31 @@ function InferTypes(block:Statement[]^, parent: StringMap)
                 panic(message: "Invalid type for dot expression")
             end
         elseif expr.kind = ExpressionKind.Index
-            infer(expr: expr.left)
+            infer(expr: expr.left!)
             for index of expr.indexes
                 infer(expr: index)
             end
-            if expr.left.type.kind = TypeKind.arrayType
-                expr.type := expr.left.type.ref
+            if expr.left!.type.kind = TypeKind.arrayType
+                expr.type := expr.left!.type.ref!
             end
+        elseif expr.kind = ExpressionKind.Bang
+            infer(expr: expr.left!)
+            expr.type := expr.left!.type
         elseif expr.kind = ExpressionKind.Slice
-            infer(expr: expr.left)
+            infer(expr: expr.left!)
             for index of expr.indexes
                 infer(expr: index)
             end
-            expr.type := expr.left.type
+            expr.type := expr.left!.type
         elseif expr.kind = ExpressionKind.Invoke
-            infer(expr: expr.left)
+            infer(expr: expr.left!)
             for arg of expr.indexes
                 infer(expr: arg)
             end
-            if expr.left.type.kind = TypeKind.functionType
-                expr.type := expr.left.type.stmt.type
-            elseif expr.left.type.kind = TypeKind.classType
-                expr.type := ParsedType(kind: TypeKind.objectType, ref: expr.left.type, stmt: nil)
+            if expr.left!.type.kind = TypeKind.functionType
+                expr.type := expr.left!.type.stmt!.type
+            elseif expr.left!.type.kind = TypeKind.classType
+                expr.type := ParsedType(kind: TypeKind.objectType, ref: expr.left!.type, stmt: nil)
             else
                 panic(message: "Cannot invoke non-function")
             end
@@ -920,9 +906,9 @@ function descopeCode(args: DefnArgument[]^, block: Statement[]^, outerScope: Str
             if stmt.kind = StatementKind.FunctionStatement or stmt.kind = StatementKind.ClassStatement
                 descopeCode(args: stmt.defnArguments, block: stmt.block, outerScope: scopeSet,  forClass: stmt.kind = StatementKind.ClassStatement)
             elseif stmt.kind = StatementKind.IfStatement
-                stmt.value := descopeExpression(expr: stmt.value)
+                stmt.value := descopeExpression(expr: stmt.value!)
                 for ei of stmt.elseIf
-                    ei.value := descopeExpression(expr: ei.value)
+                    ei.value := descopeExpression(expr: ei.value!)
                     descopeBlock(block: ei.block)
                 end
                 descopeBlock(block: stmt.block)
@@ -945,28 +931,28 @@ function descopeCode(args: DefnArgument[]^, block: Statement[]^, outerScope: Str
 
     function descopeExpression(expr: Expression):Expression
         if expr.kind = ExpressionKind.Identifier
-            if scopeSet.has(key: expr.value)
-                expr.value := scopeSet.get(key: expr.value)
+            if scopeSet.has(key: expr.value!)
+                expr.value := scopeSet.get(key: expr.value!)
             end
         elseif expr.kind = ExpressionKind.Equals or expr.kind = ExpressionKind.NotEquals or expr.kind = ExpressionKind.LessThan or expr.kind = ExpressionKind.LessThanEquals
                 or expr.kind = ExpressionKind.GreaterThan or expr.kind = ExpressionKind.GreaterThanEquals
                 or expr.kind = ExpressionKind.And or expr.kind = ExpressionKind.Or
                 or expr.kind = ExpressionKind.Add or expr.kind = ExpressionKind.Subtract or expr.kind = ExpressionKind.Multiply or expr.kind = ExpressionKind.Divide
-            expr.left := descopeExpression(expr: expr.left)
-            expr.right := descopeExpression(expr: expr.right)
+            expr.left := descopeExpression(expr: expr.left!)
+            expr.right := descopeExpression(expr: expr.right!)
         elseif expr.kind = ExpressionKind.Dot
-            expr.left := descopeExpression(expr: expr.left)
+            expr.left := descopeExpression(expr: expr.left!)
         elseif expr.kind = ExpressionKind.OptDot
-            expr.left := descopeExpression(expr: expr.left)
+            expr.left := descopeExpression(expr: expr.left!)
         elseif expr.kind = ExpressionKind.Index or expr.kind = ExpressionKind.Slice
-            expr.left := descopeExpression(expr: expr.left)
+            expr.left := descopeExpression(expr: expr.left!)
             let idx := 0
             while idx < expr.indexes.length
                 expr.indexes[idx] := descopeExpression(expr: expr.indexes[idx])
                 idx := idx + 1
             end
         elseif expr.kind = ExpressionKind.Invoke
-            expr.left := descopeExpression(expr: expr.left)
+            expr.left := descopeExpression(expr: expr.left!)
             let idx := 0
             while idx < expr.indexes.length
                 expr.indexes[idx] := descopeExpression(expr: expr.indexes[idx])
@@ -977,7 +963,7 @@ function descopeCode(args: DefnArgument[]^, block: Statement[]^, outerScope: Str
     end
 end
 
-function formatParsedType(type: ParsedType^): string
+function formatParsedType(type: ParsedType?): string
     if type = null
         return "no type"
     elseif type.kind = TypeKind.objectType
@@ -1011,7 +997,6 @@ class generateTS(block:Statement[]^)
     end
 
     function generateBlock(block: Statement[]^, forClass: bool, atRoot: bool)
-        let ei: ElseIfClause^
         let exportClassifier := ""
 
         if atRoot
@@ -1023,6 +1008,8 @@ class generateTS(block:Statement[]^)
                 dumpType(type: stmt.type)
                 if forClass and stmt.isPublic
                     result.push(value: "_o." + stmt.identifier + " = " + generateJSExpression(expr: stmt.value) + ";")
+                elseif stmt.type <> nil
+                    result.push(value: "const " + stmt.identifier + ": " + generateTSType(type: stmt.type) + " = " + generateJSExpression(expr: stmt.value) + ";")
                 else
                     result.push(value: "const " + stmt.identifier + " = " + generateJSExpression(expr: stmt.value) + ";")
                 end
@@ -1031,7 +1018,7 @@ class generateTS(block:Statement[]^)
                 if forClass and stmt.isPublic
                     result.push(value: "_o." + stmt.identifier + " = " + generateJSExpression(expr: stmt.value) + ";")
                 else
-                    if stmt.type <> null
+                    if stmt.type <> nil
                         result.push(value: "let " + stmt.identifier + ": " + generateTSType(type: stmt.type) + " = " + generateJSExpression(expr: stmt.value) + ";")
                     else
                         result.push(value: "let " + stmt.identifier + " = " + generateJSExpression(expr: stmt.value) + ";")
@@ -1084,7 +1071,7 @@ class generateTS(block:Statement[]^)
                 result.push(value: "}")
                 generateTSInterface(definition: stmt)
             elseif stmt.kind = StatementKind.FunctionStatement
-                result.push(value: exportClassifier + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + ") {")
+                result.push(value: exportClassifier + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + "):" + generateTSType(type: stmt.type) + " {")
     
                 generateBlock(block: stmt.block, forClass: false, atRoot: false)
     
@@ -1144,56 +1131,56 @@ function generateJSExpression(expr: Expression^):string
     end
 
     if expr.kind = ExpressionKind.LessThan
-        return generateJSExpression(expr: expr.left) + " < " + generateJSExpression(expr: expr.right)
+        return generateJSExpression(expr: expr.left!) + " < " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.GreaterThan
-        return generateJSExpression(expr: expr.left) + " > " + generateJSExpression(expr: expr.right)
+        return generateJSExpression(expr: expr.left!) + " > " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.Equals
-        return generateJSExpression(expr: expr.left) + " == " + generateJSExpression(expr: expr.right)
+        return generateJSExpression(expr: expr.left!) + " == " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.NotEquals
-        return generateJSExpression(expr: expr.left) + " != " + generateJSExpression(expr: expr.right)
+        return generateJSExpression(expr: expr.left!) + " != " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.GreaterThanEquals
-        return generateJSExpression(expr: expr.left) + " >= " + generateJSExpression(expr: expr.right)
+        return generateJSExpression(expr: expr.left!) + " >= " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.LessThanEquals
-        return generateJSExpression(expr: expr.left) + " <= " + generateJSExpression(expr: expr.right)
+        return generateJSExpression(expr: expr.left!) + " <= " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.Add
-        return generateJSExpression(expr: expr.left) + " + " + generateJSExpression(expr: expr.right)
+        return generateJSExpression(expr: expr.left!) + " + " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.Subtract
-        return generateJSExpression(expr: expr.left) + " - " + generateJSExpression(expr: expr.right)
+        return generateJSExpression(expr: expr.left!) + " - " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.Multiply
-        return generateJSExpression(expr: expr.left) + " * " + generateJSExpression(expr: expr.right)
+        return generateJSExpression(expr: expr.left!) + " * " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.Divide
-        return generateJSExpression(expr: expr.left) + " / " + generateJSExpression(expr: expr.right)
+        return generateJSExpression(expr: expr.left!) + " / " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.Or
-        return generateJSExpression(expr: expr.left) + " || " + generateJSExpression(expr: expr.right)
+        return generateJSExpression(expr: expr.left!) + " || " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.And
-        return generateJSExpression(expr: expr.left) + " && " + generateJSExpression(expr: expr.right)
+        return generateJSExpression(expr: expr.left!) + " && " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.Dot
-        return generateJSExpression(expr: expr.left) + "." + expr.value
+        return generateJSExpression(expr: expr.left!) + "." + expr.value
     elseif expr.kind = ExpressionKind.OptDot
-        return generateJSExpression(expr: expr.left) + "?." + expr.value
+        return generateJSExpression(expr: expr.left!) + "?." + expr.value
     elseif expr.kind = ExpressionKind.Not
-        return "!" + generateJSExpression(expr: expr.left)
+        return "!" + generateJSExpression(expr: expr.left!)
+    elseif expr.kind = ExpressionKind.Bang
+        return generateJSExpression(expr: expr.left!) + "!"
     elseif expr.kind = ExpressionKind.IntConstant
-        return expr.value
+        return expr.value!
     elseif expr.kind = ExpressionKind.NilConstant
         return "null"
     elseif expr.kind = ExpressionKind.BoolConstant
-        return expr.value
+        return expr.value!
     elseif expr.kind = ExpressionKind.StringConstant
-        return expr.value
+        return expr.value!
     elseif expr.kind = ExpressionKind.Identifier
-        return expr.value
+        return expr.value!
     elseif expr.kind = ExpressionKind.Invoke
-
-        return generateJSExpression(expr: expr.left) + "(" + generateArguments(args: expr.indexes) + ")"
+        return generateJSExpression(expr: expr.left!) + "(" + generateArguments(args: expr.indexes) + ")"
     elseif expr.kind = ExpressionKind.Slice
-
-        return "__slice(" + generateJSExpression(expr: expr.left) + ", " + generateArguments(args: expr.indexes) + ")"
+        return "__slice(" + generateJSExpression(expr: expr.left!) + ", " + generateArguments(args: expr.indexes) + ")"
     elseif expr.kind = ExpressionKind.Index
         if expr.indexes.length = 0
             return "[]"
         end
-        return "__index_get(" + generateJSExpression(expr: expr.left) + ", " + generateArguments(args: expr.indexes) + ")"
+        return "__index_get(" + generateJSExpression(expr: expr.left!) + ", " + generateArguments(args: expr.indexes) + ")"
     elseif expr.kind = ExpressionKind.ArrayInit
         return "[]"
     else
@@ -1201,7 +1188,7 @@ function generateJSExpression(expr: Expression^):string
     end
 end
 
-function generateTSType(type: ParsedType^): string
+function generateTSType(type: ParsedType?): string
     if type = nil
         return "any"
     end

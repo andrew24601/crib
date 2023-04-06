@@ -1,65 +1,67 @@
 import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"
 enum Token {
-tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret, tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign, tkAnd, tkOr, tkConst, tkLet, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString, tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals, tkEOF, tkInvalid
+tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret, tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign, tkAnd, tkOr, tkConst, tkLet, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString, tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang, tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals, tkEOF, tkInvalid
 };
 enum StatementKind {
 ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement, ReturnStatement, IfStatement, WhileStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement
 };
 enum ExpressionKind {
-IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate
+IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate, Invalid
 };
 enum TypeKind {
-intType, doubleType, boolType, stringType, objectType, arrayType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, invalidType
+intType, doubleType, boolType, stringType, objectType, arrayType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType
 };
-export function isWhitespace(ch:number) {
+ // unknown
+const sharedUnknownType: any = ParsedType(TypeKind.unknownType, null, null);
+export function isWhitespace(ch:number):boolean {
 if (ch == 32 || ch == 13 || ch == 10 || ch == 9) {
 return true;
 }
 return false;
 }
-export function isLeadingIdentifier(ch:number) {
+export function isLeadingIdentifier(ch:number):boolean {
 return ch >= 65 && ch <= 90 || ch >= 97 && ch <= 122 || ch == 95;
 }
-export function isTrailingIdentifier(ch:number) {
+export function isTrailingIdentifier(ch:number):boolean {
 return ch >= 48 && ch <= 57 || ch >= 65 && ch <= 90 || ch >= 97 && ch <= 122 || ch == 95;
 }
-export function isDigit(ch:number) {
+export function isDigit(ch:number):boolean {
 return ch >= 48 && ch <= 57;
 }
 export function Tokeniser(text:string) {
 const _o = {} as class_Tokeniser;
- // no type
-const length = text.length;
- // no type
-let pos = null;
- // no type
-let tokenStart = null;
- // no type
-let hasPutback = false;
- // object
-let lastToken: Token = null;
- // no type
+ // unknown
+const length: any = text.length;
+ // unknown
+let pos: any = 0;
+ // unknown
+let tokenStart: any = 0;
+ // unknown
+let hasPutback: any = false;
+ // nullable<object>
+let lastToken: Token | null = null;
+ // unknown
 _o.line = 1;
-function nextToken() {
+function nextToken():Token {
 if (hasPutback) {
 hasPutback = false;
-return lastToken;
+return lastToken!;
 }
 lastToken = parseNextToken();
 return lastToken;
 }
 _o.nextToken = nextToken;
-function putback() {
+function putback():any {
 hasPutback = true;
 }
 _o.putback = putback;
-function value() {
+function value():string {
 return __slice(text, tokenStart, pos);
 }
 _o.value = value;
-function parseNextToken() {
- // string
-let ident: string = null;
+function parseNextToken():Token {
+ // nullable<string>
+let ident: string | null = null;
 while (pos < length && isWhitespace(__index_get(text, pos))) {
 if (__index_get(text, pos) == 10) {
 _o.line = _o.line + 1;
@@ -70,8 +72,8 @@ if (pos == length) {
 return Token.tkEOF;
 }
 tokenStart = pos;
- // no type
-let ch = __index_get(text, pos);
+ // unknown
+let ch: any = __index_get(text, pos);
 pos = pos + 1;
 if (isLeadingIdentifier(ch)) {
 while (pos < length && isTrailingIdentifier(__index_get(text, pos))) {
@@ -146,12 +148,14 @@ pos = pos + 1;
 }
 return Token.tkStringConstant;
 }
- // no type
-let match = Token.tkInvalid;
+ // unknown
+let match: any = Token.tkInvalid;
 if (ch == 40) {
 match = Token.tkLeftParen;
 } else if (ch == 41) {
 match = Token.tkRightParen;
+} else if (ch == 33) {
+match = Token.tkBang;
 } else if (ch == 59) {
 match = Token.tkSemiColon;
 } else if (ch == 44) {
@@ -228,7 +232,7 @@ nextToken():Token;
 putback():any;
 value():string;
 }
-export function Expression(kind:ExpressionKind,left:class_Expression,right:class_Expression) {
+export function Expression(kind:ExpressionKind,left:class_Expression | null,right:class_Expression | null) {
 const _o = {} as class_Expression;
 _o.kind = kind;
 _o.left = left;
@@ -239,28 +243,28 @@ _o.value = null;
 _o.indexes = [];
  // array<string>
 _o.identifiers = [];
- // nullable<object>
-_o.type = null;
- // no type
+ // object
+_o.type = sharedUnknownType;
+ // unknown
 _o.line = 0;
 return _o;
 }
 interface class_Expression {
 kind:ExpressionKind;
-left:class_Expression;
-right:class_Expression;
+left:class_Expression | null;
+right:class_Expression | null;
 value:string | null;
 indexes:class_Expression[];
 identifiers:string[];
-type:class_ParsedType | null;
+type:class_ParsedType;
 line:any;
 }
-export function ParsedType(kind:TypeKind,ref:class_ParsedType,stmt:class_Statement) {
+export function ParsedType(kind:TypeKind,ref:class_ParsedType | null,stmt:class_Statement | null) {
 const _o = {} as class_ParsedType;
 _o.kind = kind;
 _o.ref = ref;
 _o.stmt = stmt;
- // string
+ // nullable<string>
 _o.identifier = null;
  // array<object>
 _o.parameters = [];
@@ -268,9 +272,9 @@ return _o;
 }
 interface class_ParsedType {
 kind:TypeKind;
-ref:class_ParsedType;
-stmt:class_Statement;
-identifier:string;
+ref:class_ParsedType | null;
+stmt:class_Statement | null;
+identifier:string | null;
 parameters:class_ParsedType[];
 }
 export function DefnArgument(identifier:string,type:class_ParsedType,isPublic:boolean) {
@@ -285,12 +289,10 @@ identifier:string;
 type:class_ParsedType;
 isPublic:boolean;
 }
-export function ElseIfClause() {
+export function ElseIfClause(value:class_Expression,block:class_Statement[]) {
 const _o = {} as class_ElseIfClause;
- // object
-_o.value = null;
- // array<object>
-_o.block = [];
+_o.value = value;
+_o.block = block;
 return _o;
 }
 interface class_ElseIfClause {
@@ -300,10 +302,10 @@ block:class_Statement[];
 export function Statement(kind:StatementKind) {
 const _o = {} as class_Statement;
 _o.kind = kind;
- // string
+ // nullable<string>
 _o.identifier = null;
- // nullable<object>
-_o.type = null;
+ // object
+_o.type = sharedUnknownType;
  // nullable<object>
 _o.value = null;
  // nullable<object>
@@ -319,13 +321,13 @@ _o.identifierList = [];
  // array<object>
 _o.defnArguments = [];
  // bool
-_o.isPublic = null;
+_o.isPublic = false;
 return _o;
 }
 interface class_Statement {
 kind:StatementKind;
-identifier:string;
-type:class_ParsedType | null;
+identifier:string | null;
+type:class_ParsedType;
 value:class_Expression | null;
 lhs:class_Expression | null;
 block:class_Statement[];
@@ -337,35 +339,35 @@ isPublic:boolean;
 }
 export function Parser(tokeniser:class_Tokeniser) {
 const _o = {} as class_Parser;
-function acceptToken(token:Token) {
- // no type
-const tk = tokeniser.nextToken();
+function acceptToken(token:Token):boolean {
+ // unknown
+const tk: any = tokeniser.nextToken();
 if (tk == token) {
 return true;
 }
 tokeniser.putback();
 return false;
 }
-function expectToken(expected:Token) {
- // no type
-const tk = tokeniser.nextToken();
+function expectToken(expected:Token):string {
+ // unknown
+const tk: any = tokeniser.nextToken();
 if (tk != expected) {
 panic("expected " + tokeniser.line);
 }
 return tokeniser.value();
 }
-function expectIdentifier() {
+function expectIdentifier():string {
 return expectToken(Token.tkIdentifier);
 }
-function parseType() {
- // no type
-let reference = false;
- // no type
-const tk = tokeniser.nextToken();
+function parseType():class_ParsedType {
+ // unknown
+let reference: any = false;
+ // unknown
+const tk: any = tokeniser.nextToken();
  // object
-let type: class_ParsedType = null;
- // no type
-const identifier = tokeniser.value();
+let type: class_ParsedType = sharedUnknownType;
+ // unknown
+const identifier: any = tokeniser.value();
 if (acceptToken(Token.tkCaret)) {
 reference = true;
 }
@@ -401,23 +403,21 @@ return type;
 }
 return type;
 }
-function parseStatement() {
- // no type
-let tk = tokeniser.nextToken();
+function parseStatement():class_Statement | null {
+ // unknown
+let tk: any = tokeniser.nextToken();
+ // nullable<object>
+let stmt: class_Statement | null = null;
+ // nullable<string>
+let identifier: string | null = null;
  // object
-let stmt: class_Statement = null;
- // string
-let identifier: string = null;
- // object
-let type: class_ParsedType = null;
- // object
-let value: class_Expression = null;
+let type: class_ParsedType = sharedUnknownType;
+ // nullable<object>
+let value: class_Expression | null = null;
  // array<object>
 let block: class_Statement[] = [];
- // object
-let clause: class_ElseIfClause = null;
- // no type
-let isPublic = false;
+ // unknown
+let isPublic: any = false;
 if (tk == Token.tkElse || tk == Token.tkElseif || tk == Token.tkEnd || tk == Token.tkUntil || tk == Token.tkEOF) {
 tokeniser.putback();
 return null;
@@ -439,6 +439,9 @@ value = Expression(ExpressionKind.ArrayInit, null, null);
 } else if (type?.kind == TypeKind.intType) {
 value = Expression(ExpressionKind.IntConstant, null, null);
 value.value = "0";
+} else if (type?.kind == TypeKind.boolType) {
+value = Expression(ExpressionKind.BoolConstant, null, null);
+value.value = "false";
 } else {
 value = Expression(ExpressionKind.NilConstant, null, null);
 }
@@ -498,12 +501,8 @@ return stmt;
 stmt = Statement(StatementKind.IfStatement);
 stmt.value = parseExpression();
 stmt.block = parseBlock();
-stmt.elseIf = [];
 while (acceptToken(Token.tkElseif)) {
-clause = ElseIfClause();
-clause.value = parseExpression();
-clause.block = parseBlock();
-stmt.elseIf.push(clause);
+stmt.elseIf.push(ElseIfClause(parseExpression(), parseBlock()));
 }
 if (acceptToken(Token.tkElse)) {
 stmt.elseBlock = parseBlock();
@@ -543,12 +542,11 @@ stmt = Statement(StatementKind.ExpressionStatement);
 stmt.value = value;
 return stmt;
 }
-function parseBlock() {
- // no type
-const result = [];
- // object
-let stmt: class_Statement = null;
-stmt = parseStatement();
+function parseBlock():class_Statement[] {
+ // array<object>
+const result: class_Statement[] = [];
+ // nullable<object>
+let stmt: class_Statement | null = parseStatement();
 while (stmt != null) {
 result.push(stmt);
 stmt = parseStatement();
@@ -556,22 +554,22 @@ stmt = parseStatement();
 return result;
 }
 _o.parseBlock = parseBlock;
-function parseDefnArgument() {
- // no type
-let isPublic = false;
+function parseDefnArgument():class_DefnArgument {
+ // unknown
+let isPublic: any = false;
 if (acceptToken(Token.tkPublic)) {
 isPublic = true;
 }
- // no type
-const identifier = expectIdentifier();
+ // unknown
+const identifier: any = expectIdentifier();
 expectToken(Token.tkColon);
- // no type
-const type = parseType();
+ // unknown
+const type: any = parseType();
 return DefnArgument(identifier, type, isPublic);
 }
-function parseDefnArguments() {
- // no type
-const result = [];
+function parseDefnArguments():class_DefnArgument[] {
+ // array<object>
+const result: class_DefnArgument[] = [];
 if (acceptToken(Token.tkRightParen)) {
 return result;
 }
@@ -582,11 +580,11 @@ result.push(parseDefnArgument());
 expectToken(Token.tkRightParen);
 return result;
 }
-function parseExpression() {
- // no type
-let left = parseAndExpression();
- // no type
-let tk = tokeniser.nextToken();
+function parseExpression():class_Expression {
+ // unknown
+let left: any = parseAndExpression();
+ // unknown
+let tk: any = tokeniser.nextToken();
 while (tk == Token.tkOr) {
 left = Expression(ExpressionKind.Or, left, parseAndExpression());
 tk = tokeniser.nextToken();
@@ -594,11 +592,11 @@ tk = tokeniser.nextToken();
 tokeniser.putback();
 return left;
 }
-function parseAndExpression() {
- // no type
-let left = parseComparisonExpression();
- // no type
-let tk = tokeniser.nextToken();
+function parseAndExpression():class_Expression {
+ // unknown
+let left: any = parseComparisonExpression();
+ // unknown
+let tk: any = tokeniser.nextToken();
 while (tk == Token.tkAnd) {
 left = Expression(ExpressionKind.And, left, parseComparisonExpression());
 tk = tokeniser.nextToken();
@@ -606,11 +604,11 @@ tk = tokeniser.nextToken();
 tokeniser.putback();
 return left;
 }
-function parseComparisonExpression() {
- // no type
-let left = parseAddSub();
- // no type
-let tk = tokeniser.nextToken();
+function parseComparisonExpression():class_Expression {
+ // unknown
+let left: any = parseAddSub();
+ // unknown
+let tk: any = tokeniser.nextToken();
 if (tk == Token.tkLessThan) {
 left = Expression(ExpressionKind.LessThan, left, parseAddSub());
 } else if (tk == Token.tkLessThanEquals) {
@@ -628,11 +626,11 @@ tokeniser.putback();
 }
 return left;
 }
-function parseAddSub() {
- // no type
-let left = parseTerm();
- // no type
-let tk = tokeniser.nextToken();
+function parseAddSub():class_Expression {
+ // unknown
+let left: any = parseTerm();
+ // unknown
+let tk: any = tokeniser.nextToken();
 while (tk == Token.tkPlus || tk == Token.tkMinus) {
 if (tk == Token.tkPlus) {
 left = Expression(ExpressionKind.Add, left, parseTerm());
@@ -644,11 +642,11 @@ tk = tokeniser.nextToken();
 tokeniser.putback();
 return left;
 }
-function parseTerm() {
- // no type
-let left = parseFactor();
- // no type
-let tk = tokeniser.nextToken();
+function parseTerm():class_Expression {
+ // unknown
+let left: any = parseFactor();
+ // unknown
+let tk: any = tokeniser.nextToken();
 while (tk == Token.tkTimes || tk == Token.tkSlash) {
 if (tk == Token.tkTimes) {
 left = Expression(ExpressionKind.Multiply, left, parseFactor());
@@ -660,15 +658,15 @@ tk = tokeniser.nextToken();
 tokeniser.putback();
 return left;
 }
-function parseFactor() {
- // no type
-const tk = tokeniser.nextToken();
- // object
-let e: class_Expression = null;
- // object
-let p: class_Expression = null;
- // string
-let ident: string = null;
+function parseFactor():class_Expression {
+ // unknown
+const tk: any = tokeniser.nextToken();
+ // nullable<object>
+let e: class_Expression | null = null;
+ // nullable<object>
+let p: class_Expression | null = null;
+ // nullable<string>
+let ident: string | null = null;
 if (tk == Token.tkIntConstant) {
 e = Expression(ExpressionKind.IntConstant, null, null);
 e.value = tokeniser.value();
@@ -699,6 +697,7 @@ e = Expression(ExpressionKind.NilConstant, null, null);
 e.value = tokeniser.value();
 } else {
 panic("Unexpected token: " + tokeniser.value());
+e = Expression(ExpressionKind.Invalid, null, null);
 }
 while (true) {
 if (acceptToken(Token.tkDot)) {
@@ -709,6 +708,8 @@ e.value = expectIdentifier();
 e = Expression(ExpressionKind.OptDot, e, null);
 e.line = tokeniser.line;
 e.value = expectIdentifier();
+} else if (acceptToken(Token.tkBang)) {
+e = Expression(ExpressionKind.Bang, e, null);
 } else if (acceptToken(Token.tkLeftParen)) {
 e = Expression(ExpressionKind.Invoke, e, null);
 e.line = tokeniser.line;
@@ -748,41 +749,19 @@ e.indexes.push(parseExpression());
 expectToken(Token.tkRightBracket);
 }
 } else {
-return e;
+return e!;
 }
 }
-return e;
+return e!;
 }
 return _o;
 }
 interface class_Parser {
 parseBlock():class_Statement[];
 }
-export function TypeScope(parent:class_TypeScope) {
-const _o = {} as class_TypeScope;
- // array<object>
-_o.types = [];
-function findType(identifier:string) {
-for (const t of _o.types) {
-if (t.identifier == identifier) {
-return t;
-}
-}
-if (parent != null) {
-return parent.findType(identifier);
-}
-return null;
-}
-_o.findType = findType;
-return _o;
-}
-interface class_TypeScope {
-types:class_Statement[];
-findType(identifier:string):class_Statement;
-}
-export function InferTypes(block:any,parent:class_StringMap) {
- // no type
-const scope = StringMap(parent);
+export function InferTypes(block:any,parent:class_StringMap):any {
+ // unknown
+const scope: any = StringMap(parent);
 for (const stmt of block) {
 if (stmt.kind == StatementKind.ClassStatement) {
 scope.set(stmt.identifier, ParsedType(TypeKind.classType, null, stmt));
@@ -794,8 +773,8 @@ scope.set(stmt.identifier, ParsedType(TypeKind.functionType, null, stmt));
 }
 for (const stmt of block) {
 if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.FunctionStatement) {
- // no type
-const blockScope = StringMap(scope);
+ // unknown
+const blockScope: any = StringMap(scope);
 for (const arg of stmt.defnArguments) {
 arg.type = resolve(arg.type);
 }
@@ -817,8 +796,8 @@ if (stmt.type != null) {
 stmt.type = resolve(stmt.type);
 }
 } else if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.FunctionStatement) {
- // no type
-const blockScope = StringMap(scope);
+ // unknown
+const blockScope: any = StringMap(scope);
 for (const arg of stmt.defnArguments) {
 arg.type = resolve(arg.type);
 blockScope.set(arg.identifier, arg.type);
@@ -826,7 +805,7 @@ blockScope.set(arg.identifier, arg.type);
 InferTypes(stmt.block, blockScope);
 }
 }
-function infer(expr:class_Expression) {
+function infer(expr:class_Expression):class_ParsedType {
 expr.type = ParsedType(TypeKind.invalidType, null, null);
 if (expr.kind == ExpressionKind.IntConstant) {
 expr.type = ParsedType(TypeKind.intType, null, null);
@@ -837,45 +816,45 @@ expr.type = ParsedType(TypeKind.boolType, null, null);
 } else if (expr.kind == ExpressionKind.DoubleConstant) {
 expr.type = ParsedType(TypeKind.doubleType, null, null);
 } else if (expr.kind == ExpressionKind.LessThan || expr.kind == ExpressionKind.LessThanEquals || expr.kind == ExpressionKind.GreaterThan || expr.kind == ExpressionKind.GreaterThanEquals || expr.kind == ExpressionKind.Equals || expr.kind == ExpressionKind.NotEquals) {
-infer(expr.left);
-infer(expr.right);
+infer(expr.left!);
+infer(expr.right!);
 expr.type = ParsedType(TypeKind.boolType, null, null);
 } else if (expr.kind == ExpressionKind.And || expr.kind == ExpressionKind.Or) {
-infer(expr.left);
-infer(expr.right);
+infer(expr.left!);
+infer(expr.right!);
 expr.type = ParsedType(TypeKind.boolType, null, null);
 } else if (expr.kind == ExpressionKind.Add) {
-infer(expr.left);
-infer(expr.right);
-if (expr.left.type.kind == TypeKind.stringType || expr.right.type.kind == TypeKind.stringType) {
+infer(expr.left!);
+infer(expr.right!);
+if (expr.left!.type.kind == TypeKind.stringType || expr.right!.type.kind == TypeKind.stringType) {
 expr.type = ParsedType(TypeKind.stringType, null, null);
-} else if (expr.left.type.kind == TypeKind.doubleType || expr.right.type.kind == TypeKind.doubleType) {
+} else if (expr.left!.type.kind == TypeKind.doubleType || expr.right!.type.kind == TypeKind.doubleType) {
 expr.type = ParsedType(TypeKind.doubleType, null, null);
 } else {
 expr.type = ParsedType(TypeKind.intType, null, null);
 }
 } else if (expr.kind == ExpressionKind.Subtract || expr.kind == ExpressionKind.Multiply || expr.kind == ExpressionKind.Divide || expr.kind == ExpressionKind.Modulo) {
-infer(expr.left);
-infer(expr.right);
-if (expr.left.type.kind == TypeKind.doubleType || expr.right.type.kind == TypeKind.doubleType) {
+infer(expr.left!);
+infer(expr.right!);
+if (expr.left!.type.kind == TypeKind.doubleType || expr.right!.type.kind == TypeKind.doubleType) {
 expr.type = ParsedType(TypeKind.doubleType, null, null);
 } else {
 expr.type = ParsedType(TypeKind.intType, null, null);
 }
 } else if (expr.kind == ExpressionKind.Not) {
-infer(expr.left);
+infer(expr.left!);
 expr.type = ParsedType(TypeKind.boolType, null, null);
 } else if (expr.kind == ExpressionKind.Identifier) {
 if (scope.has(expr.value)) {
 expr.type = scope.get(expr.value);
 }
 } else if (expr.kind == ExpressionKind.Dot || expr.kind == ExpressionKind.OptDot) {
-infer(expr.left);
-if (expr.left.type.kind == TypeKind.enumDefinitionType) {
+infer(expr.left!);
+if (expr.left!.type.kind == TypeKind.enumDefinitionType) {
 expr.type = ParsedType(TypeKind.enumType, null, null);
-} else if (expr.left.type.kind == TypeKind.objectType) {
-expr.type = getFieldType(expr.left.type.ref.stmt, expr.value);
-} else if (expr.left.type.kind == TypeKind.stringType) {
+} else if (expr.left!.type.kind == TypeKind.objectType) {
+expr.type = getFieldType(expr.left!.type.ref!.stmt!, expr.value!);
+} else if (expr.left!.type.kind == TypeKind.stringType) {
 if (expr.value == "length") {
 expr.type = ParsedType(TypeKind.intType, null, null);
 } else {
@@ -885,35 +864,38 @@ panic("Invalid srting field");
 panic("Invalid type for dot expression");
 }
 } else if (expr.kind == ExpressionKind.Index) {
-infer(expr.left);
+infer(expr.left!);
 for (const index of expr.indexes) {
 infer(index);
 }
-if (expr.left.type.kind == TypeKind.arrayType) {
-expr.type = expr.left.type.ref;
+if (expr.left!.type.kind == TypeKind.arrayType) {
+expr.type = expr.left!.type.ref!;
 }
+} else if (expr.kind == ExpressionKind.Bang) {
+infer(expr.left!);
+expr.type = expr.left!.type;
 } else if (expr.kind == ExpressionKind.Slice) {
-infer(expr.left);
+infer(expr.left!);
 for (const index of expr.indexes) {
 infer(index);
 }
-expr.type = expr.left.type;
+expr.type = expr.left!.type;
 } else if (expr.kind == ExpressionKind.Invoke) {
-infer(expr.left);
+infer(expr.left!);
 for (const arg of expr.indexes) {
 infer(arg);
 }
-if (expr.left.type.kind == TypeKind.functionType) {
-expr.type = expr.left.type.stmt.type;
-} else if (expr.left.type.kind == TypeKind.classType) {
-expr.type = ParsedType(TypeKind.objectType, expr.left.type, null);
+if (expr.left!.type.kind == TypeKind.functionType) {
+expr.type = expr.left!.type.stmt!.type;
+} else if (expr.left!.type.kind == TypeKind.classType) {
+expr.type = ParsedType(TypeKind.objectType, expr.left!.type, null);
 } else {
 panic("Cannot invoke non-function");
 }
 }
 return expr.type;
 }
-function getFieldType(classDefinition:class_Statement,identifier:string) {
+function getFieldType(classDefinition:class_Statement,identifier:string):class_ParsedType {
 for (const arg of classDefinition.defnArguments) {
 if (arg.identifier == identifier) {
 return arg.type;
@@ -933,7 +915,7 @@ return ParsedType(TypeKind.functionType, null, stmt);
 panic("Field " + identifier + " not found in class " + classDefinition.identifier);
 return ParsedType(TypeKind.invalidType, null, null);
 }
-function resolve(t:class_ParsedType) {
+function resolve(t:class_ParsedType):class_ParsedType {
 if (t.kind == TypeKind.objectType && t.ref == null) {
 if (scope.has(t.identifier)) {
 t = scope.get(t.identifier);
@@ -951,9 +933,9 @@ panic("Type " + t.identifier + " is not a class or enum");
 return t;
 }
 }
-export function descopeCode(args:any,block:any,outerScope:class_StringMap,forClass:boolean) {
- // no type
-let scopeSet = StringMap(outerScope);
+export function descopeCode(args:any,block:any,outerScope:class_StringMap,forClass:boolean):any {
+ // unknown
+let scopeSet: any = StringMap(outerScope);
 for (const arg of args) {
 if (arg.isPublic && forClass) {
 scopeSet.add(arg.identifier, "_o." + arg.identifier);
@@ -971,19 +953,19 @@ scopeSet.delete(stmt.identifier);
 }
 }
 descopeBlock(block);
-function descopeBlock(block:any) {
- // no type
-let idx = 0;
+function descopeBlock(block:any):any {
+ // unknown
+let idx: any = 0;
 while (idx < block.length) {
- // no type
-const stmt = __index_get(block, idx);
+ // unknown
+const stmt: any = __index_get(block, idx);
 idx = idx + 1;
 if (stmt.kind == StatementKind.FunctionStatement || stmt.kind == StatementKind.ClassStatement) {
 descopeCode(stmt.defnArguments, stmt.block, scopeSet, stmt.kind == StatementKind.ClassStatement);
 } else if (stmt.kind == StatementKind.IfStatement) {
-stmt.value = descopeExpression(stmt.value);
+stmt.value = descopeExpression(stmt.value!);
 for (const ei of stmt.elseIf) {
-ei.value = descopeExpression(ei.value);
+ei.value = descopeExpression(ei.value!);
 descopeBlock(ei.block);
 }
 descopeBlock(stmt.block);
@@ -1003,30 +985,30 @@ stmt.lhs = descopeExpression(stmt.lhs);
 }
 }
 }
-function descopeExpression(expr:class_Expression) {
+function descopeExpression(expr:class_Expression):class_Expression {
 if (expr.kind == ExpressionKind.Identifier) {
-if (scopeSet.has(expr.value)) {
-expr.value = scopeSet.get(expr.value);
+if (scopeSet.has(expr.value!)) {
+expr.value = scopeSet.get(expr.value!);
 }
 } else if (expr.kind == ExpressionKind.Equals || expr.kind == ExpressionKind.NotEquals || expr.kind == ExpressionKind.LessThan || expr.kind == ExpressionKind.LessThanEquals || expr.kind == ExpressionKind.GreaterThan || expr.kind == ExpressionKind.GreaterThanEquals || expr.kind == ExpressionKind.And || expr.kind == ExpressionKind.Or || expr.kind == ExpressionKind.Add || expr.kind == ExpressionKind.Subtract || expr.kind == ExpressionKind.Multiply || expr.kind == ExpressionKind.Divide) {
-expr.left = descopeExpression(expr.left);
-expr.right = descopeExpression(expr.right);
+expr.left = descopeExpression(expr.left!);
+expr.right = descopeExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.Dot) {
-expr.left = descopeExpression(expr.left);
+expr.left = descopeExpression(expr.left!);
 } else if (expr.kind == ExpressionKind.OptDot) {
-expr.left = descopeExpression(expr.left);
+expr.left = descopeExpression(expr.left!);
 } else if (expr.kind == ExpressionKind.Index || expr.kind == ExpressionKind.Slice) {
-expr.left = descopeExpression(expr.left);
- // no type
-let idx = 0;
+expr.left = descopeExpression(expr.left!);
+ // unknown
+let idx: any = 0;
 while (idx < expr.indexes.length) {
 __index_set(expr.indexes, idx, descopeExpression(__index_get(expr.indexes, idx)));
 idx = idx + 1;
 }
 } else if (expr.kind == ExpressionKind.Invoke) {
-expr.left = descopeExpression(expr.left);
- // no type
-let idx = 0;
+expr.left = descopeExpression(expr.left!);
+ // unknown
+let idx: any = 0;
 while (idx < expr.indexes.length) {
 __index_set(expr.indexes, idx, descopeExpression(__index_get(expr.indexes, idx)));
 idx = idx + 1;
@@ -1035,7 +1017,7 @@ idx = idx + 1;
 return expr;
 }
 }
-export function formatParsedType(type:class_ParsedType) {
+export function formatParsedType(type:class_ParsedType | null):string {
 if (type == null) {
 return "no type";
 } else if (type.kind == TypeKind.objectType) {
@@ -1060,17 +1042,15 @@ return "unknown";
 }
 export function generateTS(block:any) {
 const _o = {} as class_generateTS;
- // no type
+ // unknown
 _o.result = [];
 _o.result.push('import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"');
-function dumpType(type:class_ParsedType) {
+function dumpType(type:class_ParsedType):any {
 _o.result.push(" // " + formatParsedType(type));
 }
-function generateBlock(block:any,forClass:boolean,atRoot:boolean) {
- // object
-let ei: class_ElseIfClause = null;
- // no type
-let exportClassifier = "";
+function generateBlock(block:any,forClass:boolean,atRoot:boolean):any {
+ // unknown
+let exportClassifier: any = "";
 if (atRoot) {
 exportClassifier = "export ";
 }
@@ -1079,6 +1059,8 @@ if (stmt.kind == StatementKind.ConstStatement) {
 dumpType(stmt.type);
 if (forClass && stmt.isPublic) {
 _o.result.push("_o." + stmt.identifier + " = " + generateJSExpression(stmt.value) + ";");
+} else if (stmt.type != null) {
+_o.result.push("const " + stmt.identifier + ": " + generateTSType(stmt.type) + " = " + generateJSExpression(stmt.value) + ";");
 } else {
 _o.result.push("const " + stmt.identifier + " = " + generateJSExpression(stmt.value) + ";");
 }
@@ -1136,7 +1118,7 @@ _o.result.push("return _o;");
 _o.result.push("}");
 generateTSInterface(stmt);
 } else if (stmt.kind == StatementKind.FunctionStatement) {
-_o.result.push(exportClassifier + "function " + stmt.identifier + "(" + generateDefnArguments(stmt.defnArguments) + ") {");
+_o.result.push(exportClassifier + "function " + stmt.identifier + "(" + generateDefnArguments(stmt.defnArguments) + "):" + generateTSType(stmt.type) + " {");
 generateBlock(stmt.block, false, false);
 _o.result.push("}");
 if (forClass && stmt.isPublic) {
@@ -1155,7 +1137,7 @@ _o.result.push("unknown");
 }
 }
 }
-function generateTSInterface(definition:class_Statement) {
+function generateTSInterface(definition:class_Statement):any {
 if (definition.kind == StatementKind.ClassStatement) {
 _o.result.push("interface class_" + definition.identifier + " {");
 for (const arg of definition.defnArguments) {
@@ -1183,66 +1165,68 @@ return _o;
 interface class_generateTS {
 result:any;
 }
-export function generateJSExpression(expr:class_Expression) {
+export function generateJSExpression(expr:class_Expression):string {
 if (expr == null) {
 return "*nil";
 }
 if (expr.kind == ExpressionKind.LessThan) {
-return generateJSExpression(expr.left) + " < " + generateJSExpression(expr.right);
+return generateJSExpression(expr.left!) + " < " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.GreaterThan) {
-return generateJSExpression(expr.left) + " > " + generateJSExpression(expr.right);
+return generateJSExpression(expr.left!) + " > " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.Equals) {
-return generateJSExpression(expr.left) + " == " + generateJSExpression(expr.right);
+return generateJSExpression(expr.left!) + " == " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.NotEquals) {
-return generateJSExpression(expr.left) + " != " + generateJSExpression(expr.right);
+return generateJSExpression(expr.left!) + " != " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.GreaterThanEquals) {
-return generateJSExpression(expr.left) + " >= " + generateJSExpression(expr.right);
+return generateJSExpression(expr.left!) + " >= " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.LessThanEquals) {
-return generateJSExpression(expr.left) + " <= " + generateJSExpression(expr.right);
+return generateJSExpression(expr.left!) + " <= " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.Add) {
-return generateJSExpression(expr.left) + " + " + generateJSExpression(expr.right);
+return generateJSExpression(expr.left!) + " + " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.Subtract) {
-return generateJSExpression(expr.left) + " - " + generateJSExpression(expr.right);
+return generateJSExpression(expr.left!) + " - " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.Multiply) {
-return generateJSExpression(expr.left) + " * " + generateJSExpression(expr.right);
+return generateJSExpression(expr.left!) + " * " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.Divide) {
-return generateJSExpression(expr.left) + " / " + generateJSExpression(expr.right);
+return generateJSExpression(expr.left!) + " / " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.Or) {
-return generateJSExpression(expr.left) + " || " + generateJSExpression(expr.right);
+return generateJSExpression(expr.left!) + " || " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.And) {
-return generateJSExpression(expr.left) + " && " + generateJSExpression(expr.right);
+return generateJSExpression(expr.left!) + " && " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.Dot) {
-return generateJSExpression(expr.left) + "." + expr.value;
+return generateJSExpression(expr.left!) + "." + expr.value;
 } else if (expr.kind == ExpressionKind.OptDot) {
-return generateJSExpression(expr.left) + "?." + expr.value;
+return generateJSExpression(expr.left!) + "?." + expr.value;
 } else if (expr.kind == ExpressionKind.Not) {
-return "!" + generateJSExpression(expr.left);
+return "!" + generateJSExpression(expr.left!);
+} else if (expr.kind == ExpressionKind.Bang) {
+return generateJSExpression(expr.left!) + "!";
 } else if (expr.kind == ExpressionKind.IntConstant) {
-return expr.value;
+return expr.value!;
 } else if (expr.kind == ExpressionKind.NilConstant) {
 return "null";
 } else if (expr.kind == ExpressionKind.BoolConstant) {
-return expr.value;
+return expr.value!;
 } else if (expr.kind == ExpressionKind.StringConstant) {
-return expr.value;
+return expr.value!;
 } else if (expr.kind == ExpressionKind.Identifier) {
-return expr.value;
+return expr.value!;
 } else if (expr.kind == ExpressionKind.Invoke) {
-return generateJSExpression(expr.left) + "(" + generateArguments(expr.indexes) + ")";
+return generateJSExpression(expr.left!) + "(" + generateArguments(expr.indexes) + ")";
 } else if (expr.kind == ExpressionKind.Slice) {
-return "__slice(" + generateJSExpression(expr.left) + ", " + generateArguments(expr.indexes) + ")";
+return "__slice(" + generateJSExpression(expr.left!) + ", " + generateArguments(expr.indexes) + ")";
 } else if (expr.kind == ExpressionKind.Index) {
 if (expr.indexes.length == 0) {
 return "[]";
 }
-return "__index_get(" + generateJSExpression(expr.left) + ", " + generateArguments(expr.indexes) + ")";
+return "__index_get(" + generateJSExpression(expr.left!) + ", " + generateArguments(expr.indexes) + ")";
 } else if (expr.kind == ExpressionKind.ArrayInit) {
 return "[]";
 } else {
 return "*expression*";
 }
 }
-export function generateTSType(type:class_ParsedType) {
+export function generateTSType(type:class_ParsedType | null):string {
 if (type == null) {
 return "any";
 }
@@ -1267,42 +1251,42 @@ return "Function";
 return "any";
 }
 }
-export function generateDefnArgument(arg:class_DefnArgument) {
+export function generateDefnArgument(arg:class_DefnArgument):string {
 return arg.identifier + ":" + generateTSType(arg.type);
 }
-export function generateDefnArguments(args:any) {
+export function generateDefnArguments(args:any):string {
 if (args == 0 || args.length == 0) {
 return "";
 }
- // no type
-let result = generateDefnArgument(__index_get(args, 0));
- // no type
-let idx = 1;
+ // unknown
+let result: any = generateDefnArgument(__index_get(args, 0));
+ // unknown
+let idx: any = 1;
 while (idx < args.length) {
 result = result + "," + generateDefnArgument(__index_get(args, idx));
 idx = idx + 1;
 }
 return result;
 }
-export function generateArguments(args:any) {
+export function generateArguments(args:any):string {
 if (args.length == 0) {
 return "";
 }
- // no type
-let result = generateJSExpression(__index_get(args, 0));
- // no type
-let idx = 1;
+ // unknown
+let result: any = generateJSExpression(__index_get(args, 0));
+ // unknown
+let idx: any = 1;
 while (idx < args.length) {
 result = result + ", " + generateJSExpression(__index_get(args, idx));
 idx = idx + 1;
 }
 return result;
 }
-export function generateJSEnumValues(stmt:class_Statement) {
- // no type
-let result = __index_get(stmt.identifierList, 0);
- // no type
-let idx = 1;
+export function generateJSEnumValues(stmt:class_Statement):string {
+ // unknown
+let result: any = __index_get(stmt.identifierList, 0);
+ // unknown
+let idx: any = 1;
 while (idx < stmt.identifierList.length) {
 result = result + ", " + __index_get(stmt.identifierList, idx);
 idx = idx + 1;
