@@ -1,4 +1,5 @@
-import { Tokeniser, Parser, generateTS, descopeCode, class_Statement, StatementKind } from "./bootstrap"
+import { Parser, generateTS, descopeCode, class_Statement, StatementKind } from "./bootstrap"
+import { Tokeniser } from "./tokeniser"
 import { readFileSync, writeFileSync } from "fs";
 import { StringMap } from "./runtime"
 
@@ -31,7 +32,7 @@ export function generateTSImport(stmt: class_Statement) {
         imports.push(ident);
     }
 
-    return `// import { ${imports.join(", ")}} from "${stmt.identifier}"`
+    return `import { ${imports.join(", ")}} from "${stmt.identifier}"`
 }
 
 const block = parseModule("./simple.crib");
