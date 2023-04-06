@@ -232,10 +232,10 @@ class Tokeniser(text: string^)
 end
 
 class Expression(public kind: ExpressionKind, public left: Expression, public right: Expression)
-    public let value: string
+    public let value: string?
     public let indexes: Expression[]
     public let identifiers: string[]
-    public let type: ParsedType^ := nil
+    public let type: ParsedType?
     public let line := 0
 end
 
@@ -255,9 +255,9 @@ end
 
 class Statement(public kind: StatementKind)
     public let identifier: string
-    public let type: ParsedType := nil
-    public let value: Expression
-    public let lhs: Expression
+    public let type: ParsedType? := nil
+    public let value: Expression?
+    public let lhs: Expression?
     public let block: Statement[]
     public let elseIf: ElseIfClause[]
     public let elseBlock: Statement[]
@@ -994,6 +994,8 @@ function formatParsedType(type: ParsedType^): string
         return "int"
     elseif type.kind = TypeKind.boolType
         return "bool"
+    elseif type.kind = TypeKind.nullableType
+        return "nullable<" + formatParsedType(type: type.ref) + ">"
     else
         return "unknown"
     end
@@ -1212,6 +1214,8 @@ function generateTSType(type: ParsedType^): string
         return "string"
     elseif type.kind = TypeKind.arrayType
         return generateTSType(type: type.ref) + "[]"
+    elseif type.kind = TypeKind.nullableType
+        return generateTSType(type: type.ref) + " | null"
     elseif type.kind = TypeKind.objectType
         if type.identifier = "Token" or type.identifier = "StatementKind" or type.identifier = "ExpressionKind" or type.identifier = "TypeKind"
             return type.identifier

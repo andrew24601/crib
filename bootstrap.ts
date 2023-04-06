@@ -233,13 +233,13 @@ const _o = {} as class_Expression;
 _o.kind = kind;
 _o.left = left;
 _o.right = right;
- // string
+ // nullable<string>
 _o.value = null;
  // array<object>
 _o.indexes = [];
  // array<string>
 _o.identifiers = [];
- // object
+ // nullable<object>
 _o.type = null;
  // no type
 _o.line = 0;
@@ -249,10 +249,10 @@ interface class_Expression {
 kind:ExpressionKind;
 left:class_Expression;
 right:class_Expression;
-value:string;
+value:string | null;
 indexes:class_Expression[];
 identifiers:string[];
-type:class_ParsedType;
+type:class_ParsedType | null;
 line:any;
 }
 export function ParsedType(kind:TypeKind,ref:class_ParsedType,stmt:class_Statement) {
@@ -302,11 +302,11 @@ const _o = {} as class_Statement;
 _o.kind = kind;
  // string
 _o.identifier = null;
- // object
+ // nullable<object>
 _o.type = null;
- // object
+ // nullable<object>
 _o.value = null;
- // object
+ // nullable<object>
 _o.lhs = null;
  // array<object>
 _o.block = [];
@@ -325,9 +325,9 @@ return _o;
 interface class_Statement {
 kind:StatementKind;
 identifier:string;
-type:class_ParsedType;
-value:class_Expression;
-lhs:class_Expression;
+type:class_ParsedType | null;
+value:class_Expression | null;
+lhs:class_Expression | null;
 block:class_Statement[];
 elseIf:class_ElseIfClause[];
 elseBlock:class_Statement[];
@@ -1052,6 +1052,8 @@ return "string";
 return "int";
 } else if (type.kind == TypeKind.boolType) {
 return "bool";
+} else if (type.kind == TypeKind.nullableType) {
+return "nullable<" + formatParsedType(type.ref) + ">";
 } else {
 return "unknown";
 }
@@ -1252,6 +1254,8 @@ return "boolean";
 return "string";
 } else if (type.kind == TypeKind.arrayType) {
 return generateTSType(type.ref) + "[]";
+} else if (type.kind == TypeKind.nullableType) {
+return generateTSType(type.ref) + " | null";
 } else if (type.kind == TypeKind.objectType) {
 if (type.identifier == "Token" || type.identifier == "StatementKind" || type.identifier == "ExpressionKind" || type.identifier == "TypeKind") {
 return type.identifier;
