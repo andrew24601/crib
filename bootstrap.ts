@@ -1,14 +1,17 @@
 import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"
-enum Token {
-tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret, tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign, tkAnd, tkOr, tkConst, tkLet, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString, tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang, tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals, tkEOF, tkInvalid
+import { generateTSImport } from "./tboot"
+// import goes here
+// import { Token, class_Tokeniser, Tokeniser} from "./tokeniser"
+export enum Token {
+tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret, tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign, tkAnd, tkOr, tkConst, tkLet, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString, tkImport, tkFrom, tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang, tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals, tkEOF, tkInvalid
 };
-enum StatementKind {
-ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement, ReturnStatement, IfStatement, WhileStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement
+export enum StatementKind {
+ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement, ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement
 };
-enum ExpressionKind {
+export enum ExpressionKind {
 IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate, Invalid
 };
-enum TypeKind {
+export enum TypeKind {
 intType, doubleType, boolType, stringType, objectType, arrayType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType
 };
  // unknown
@@ -126,6 +129,10 @@ return Token.tkFor;
 return Token.tkNil;
 } else if (ident == "not") {
 return Token.tkNot;
+} else if (ident == "import") {
+return Token.tkImport;
+} else if (ident == "from") {
+return Token.tkFrom;
 } else if (ident == "true" || ident == "false") {
 return Token.tkBoolConstant;
 } else if (ident == "public") {
@@ -226,7 +233,7 @@ return match;
 }
 return _o;
 }
-interface class_Tokeniser {
+export interface class_Tokeniser {
 line:any;
 nextToken():Token;
 putback():void;
@@ -249,7 +256,7 @@ _o.type = sharedUnknownType;
 _o.line = 0;
 return _o;
 }
-interface class_Expression {
+export interface class_Expression {
 kind:ExpressionKind;
 left:class_Expression | null;
 right:class_Expression | null;
@@ -270,7 +277,7 @@ _o.identifier = null;
 _o.parameters = [];
 return _o;
 }
-interface class_ParsedType {
+export interface class_ParsedType {
 kind:TypeKind;
 ref:class_ParsedType | null;
 stmt:class_Statement | null;
@@ -284,7 +291,7 @@ _o.type = type;
 _o.isPublic = isPublic;
 return _o;
 }
-interface class_DefnArgument {
+export interface class_DefnArgument {
 identifier:string;
 type:class_ParsedType;
 isPublic:boolean;
@@ -295,7 +302,7 @@ _o.value = value;
 _o.block = block;
 return _o;
 }
-interface class_ElseIfClause {
+export interface class_ElseIfClause {
 value:class_Expression;
 block:class_Statement[];
 }
@@ -324,7 +331,7 @@ _o.defnArguments = [];
 _o.isPublic = false;
 return _o;
 }
-interface class_Statement {
+export interface class_Statement {
 kind:StatementKind;
 identifier:string | null;
 type:class_ParsedType;
@@ -525,6 +532,28 @@ expectToken(Token.tkOf);
 stmt.value = parseExpression();
 stmt.block = parseBlock();
 expectToken(Token.tkEnd);
+return stmt;
+} else if (tk == Token.tkImport) {
+stmt = Statement(StatementKind.ImportStatement);
+stmt.identifierList.push(expectIdentifier());
+while (acceptToken(Token.tkComma)) {
+stmt.identifierList.push(expectIdentifier());
+}
+expectToken(Token.tkFrom);
+if (acceptToken(Token.tkDot)) {
+stmt.identifier = ".";
+} else if (acceptToken(Token.tkRangeInclusive)) {
+stmt.identifier = "..";
+} else {
+stmt.identifier = expectIdentifier();
+}
+while (acceptToken(Token.tkSlash)) {
+if (acceptToken(Token.tkRangeInclusive)) {
+stmt.identifier = stmt.identifier + "/..";
+} else {
+stmt.identifier = stmt.identifier + "/" + expectIdentifier();
+}
+}
 return stmt;
 }
 tokeniser.putback();
@@ -753,7 +782,7 @@ return e!;
 }
 return _o;
 }
-interface class_Parser {
+export interface class_Parser {
 parseBlock():class_Statement[];
 }
 export function InferTypes(block:class_Statement[],parent:class_StringMap):void {
@@ -1042,6 +1071,7 @@ const _o = {} as class_generateTS;
  // unknown
 _o.result = [];
 _o.result.push('import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"');
+_o.result.push('import { generateTSImport } from "./tboot"');
 function dumpType(type:class_ParsedType):void {
 _o.result.push(" // " + formatParsedType(type));
 }
@@ -1122,11 +1152,14 @@ if (forClass && stmt.isPublic) {
 _o.result.push("_o." + stmt.identifier + " = " + stmt.identifier + ";");
 }
 } else if (stmt.kind == StatementKind.EnumStatement) {
-_o.result.push("enum " + stmt.identifier + " {");
+_o.result.push("export enum " + stmt.identifier + " {");
 _o.result.push(generateJSEnumValues(stmt));
 _o.result.push("};");
 } else if (stmt.kind == StatementKind.ReturnStatement) {
 _o.result.push("return " + generateJSExpression(stmt.value!) + ";");
+} else if (stmt.kind == StatementKind.ImportStatement) {
+_o.result.push("// import goes here");
+_o.result.push(generateTSImport(stmt));
 } else if (stmt.kind == StatementKind.ExpressionStatement) {
 _o.result.push(generateJSExpression(stmt.value!) + ";");
 } else {
@@ -1136,7 +1169,7 @@ _o.result.push("unknown");
 }
 function generateTSInterface(definition:class_Statement):void {
 if (definition.kind == StatementKind.ClassStatement) {
-_o.result.push("interface class_" + definition.identifier + " {");
+_o.result.push("export interface class_" + definition.identifier + " {");
 for (const arg of definition.defnArguments) {
 if (arg.isPublic) {
 _o.result.push(arg.identifier + ":" + generateTSType(arg.type) + ";");
@@ -1159,7 +1192,7 @@ _o.result.push("}");
 generateBlock(block, false, true);
 return _o;
 }
-interface class_generateTS {
+export interface class_generateTS {
 result:any;
 }
 export function generateJSExpression(expr:class_Expression):string {

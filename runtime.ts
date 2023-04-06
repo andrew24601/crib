@@ -74,5 +74,5 @@ export function StringMap(init?: class_StringMap): class_StringMap {
 
 export function panic(message: string) {
     console.log(message);
-//    throw new Error(message);
+    throw new Error(message);
 }

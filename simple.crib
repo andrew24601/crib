@@ -1,13 +1,16 @@
+import Token, Tokeniser from ./tokeniser
+
 enum Token(tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, 
     tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret,
     tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign,
     tkAnd, tkOr, tkConst, tkLet, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString,
+    tkImport, tkFrom,
     tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang,
     tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals,
     tkEOF, tkInvalid)
 
 enum StatementKind(ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement,
-    ReturnStatement, IfStatement, WhileStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement)
+    ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement)
 
 enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract,
     LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate,
@@ -132,6 +135,10 @@ class Tokeniser(text: string^)
                 return Token.tkNil
             elseif ident = "not"
                 return Token.tkNot
+            elseif ident = "import"
+                return Token.tkImport
+            elseif ident = "from"
+                return Token.tkFrom
             elseif ident = "true" or ident = "false"
                 return Token.tkBoolConstant
             elseif ident = "public"
@@ -467,6 +474,28 @@ class Parser(tokeniser: Tokeniser)
             stmt.block := parseBlock()
             expectToken(expected: Token.tkEnd)
 
+            return stmt
+        elseif tk = Token.tkImport
+            stmt := Statement(kind: StatementKind.ImportStatement)
+            stmt.identifierList.push(value: expectIdentifier())
+            while acceptToken(token: Token.tkComma)
+                stmt.identifierList.push(value: expectIdentifier())
+            end
+            expectToken(expected: Token.tkFrom)
+            if acceptToken(token: Token.tkDot)
+                stmt.identifier := "."
+            elseif acceptToken(token: Token.tkRangeInclusive)
+                stmt.identifier := ".."
+            else
+                stmt.identifier := expectIdentifier()
+            end
+            while acceptToken(token: Token.tkSlash)
+                if acceptToken(token: Token.tkRangeInclusive)
+                    stmt.identifier := stmt.identifier + "/.."
+                else
+                    stmt.identifier := stmt.identifier + "/" + expectIdentifier()
+                end
+            end
             return stmt
         end
 
@@ -988,6 +1017,7 @@ class generateTS(block:Statement[]^)
     public const result := string[]
 
     result.push(value: 'import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"')
+    result.push(value: 'import { generateTSImport } from "./tboot"')
 
     function dumpType(type: ParsedType^)
         result.push(value: " // " + formatParsedType(type))
@@ -1078,13 +1108,16 @@ class generateTS(block:Statement[]^)
                     result.push(value: "_o." + stmt.identifier + " = " + stmt.identifier + ";")
                 end
             elseif stmt.kind = StatementKind.EnumStatement
-                result.push(value: "enum " + stmt.identifier + " {")
+                result.push(value: "export enum " + stmt.identifier + " {")
 
                 result.push(value: generateJSEnumValues(stmt))
 
                 result.push(value: "};")
             elseif stmt.kind = StatementKind.ReturnStatement
                 result.push(value: "return " + generateJSExpression(expr: stmt.value!) + ";")
+            elseif stmt.kind = StatementKind.ImportStatement
+                result.push(value: "// import goes here")
+                result.push(value: generateTSImport(stmt))
             elseif stmt.kind = StatementKind.ExpressionStatement
                 result.push(value: generateJSExpression(expr: stmt.value!) + ";")
             else
@@ -1095,7 +1128,7 @@ class generateTS(block:Statement[]^)
 
     function generateTSInterface(definition: Statement)
         if definition.kind = StatementKind.ClassStatement
-            result.push(value: "interface class_" + definition.identifier + " {")
+            result.push(value: "export interface class_" + definition.identifier + " {")
     
             for arg of definition.defnArguments
                 if arg.isPublic
