@@ -40,7 +40,7 @@ export function StringSet() {
     }
 }
 
-export function StringMap(init?: class_StringMap): class_StringMap {
+export function StringMap(init: class_StringMap | null): class_StringMap {
     const v = new Map();
 
     if (init) {

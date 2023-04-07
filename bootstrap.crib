@@ -180,7 +180,7 @@ function InferTypes(block:Statement[]^, parent: StringMap)
     end
 end
 
-function descopeCode(args: DefnArgument[]^, block: Statement[]^, outerScope: StringMap^, forClass: bool)
+function descopeCode(args: DefnArgument[]^, block: Statement[]^, outerScope: StringMap?, forClass: bool)
     let scopeSet := StringMap(init: outerScope)
 
     for arg of args

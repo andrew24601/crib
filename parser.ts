@@ -1,5 +1,5 @@
 import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"
-import { generateTSImport } from "./tboot"
+import { generateTSImport, importScope } from "./tboot"
 // import goes here
 import { Token, class_Tokeniser, Tokeniser} from "./tokeniser"
 export enum StatementKind {

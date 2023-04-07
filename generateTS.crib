@@ -4,7 +4,7 @@ class generateTS(block:Statement[]^)
     public const result := string[]
 
     result.push(value: 'import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"')
-    result.push(value: 'import { generateTSImport } from "./tboot"')
+    result.push(value: 'import { generateTSImport, importScope } from "./tboot"')
 
     function dumpType(type: ParsedType^)
         result.push(value: " // " + formatParsedType(type))
@@ -223,10 +223,12 @@ function generateTSType(type: ParsedType?): string
     elseif type.kind = TypeKind.nullableType
         return generateTSType(type: type.ref) + " | null"
     elseif type.kind = TypeKind.objectType
-        if type.identifier = "Token" or type.identifier = "StatementKind" or type.identifier = "ExpressionKind" or type.identifier = "TypeKind"
-            return type.identifier
+        if type.stmt?.kind = StatementKind.ClassStatement
+            return "class_" + type.identifier!
+        elseif type.stmt?.kind = StatementKind.EnumStatement
+            return type.identifier!
         end
-        return "class_" + type.identifier
+        return "any"
     elseif type.kind = TypeKind.functionType
         return "Function"
     elseif type.kind = TypeKind.voidType

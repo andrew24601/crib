@@ -1,9 +1,10 @@
 import { descopeCode } from "./bootstrap"
 import { Tokeniser } from "./tokeniser"
-import { Parser, class_Statement, StatementKind } from "./parser"
+import { Parser, class_Statement, StatementKind, Statement } from "./parser"
 import { readFileSync, writeFileSync } from "fs";
-import { StringMap } from "./runtime"
+import { StringMap, class_StringMap } from "./runtime"
 import { generateTS } from "./generateTS"
+import { getBlockDefinitions, inferPublicInterface } from "./infer"
 
 function parseModule(path: string): class_Statement[] {
     const text = readFileSync(path, "utf-8");
@@ -11,6 +12,19 @@ function parseModule(path: string): class_Statement[] {
     const parser = Parser(tokeniser);
     const block = parser.parseBlock();
     return block;
+}
+
+export function importScope(scope: class_StringMap, stmt: class_Statement) {
+    const module = parseModule("./" + stmt.identifier + ".crib")
+    const definitions = getBlockDefinitions(module, null)
+
+    for (const ident of stmt.identifierList) {
+        const defn = definitions.get(ident)
+        if (!defn) {
+            throw new Error(`Module ${stmt.identifier} does not export ${ident}`)
+        }
+        scope.set(ident, defn);
+    }
 }
 
 export function generateTSImport(stmt: class_Statement) {
@@ -37,14 +51,20 @@ export function generateTSImport(stmt: class_Statement) {
     return `import { ${imports.join(", ")}} from "${stmt.identifier}"`
 }
 
-const block = parseModule("./generateTS.crib");
+const filename = process.argv[2];
 
-const initialScope = StringMap();
+const block = parseModule(`./${filename}.crib`);
+
+const initialScope = StringMap(null);
+
+initialScope.set("StringMap", Statement(StatementKind.ClassStatement))
+
+console.log(inferPublicInterface(block, initialScope).v.keys());
 
 //const validator = ResolveTypes(block, initialScope);
 
-descopeCode([], block, initialScope, false)
+descopeCode([], block, null, false)
 
 const generated = generateTS(block);
 
-writeFileSync("generateTS.ts", generated.result.join("\n"));
+writeFileSync(`${filename}.ts`, generated.result.join("\n"));

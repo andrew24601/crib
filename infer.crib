@@ -1,0 +1,70 @@
+import Statement, StatementKind, ParsedType, TypeKind, ExpressionKind from ./parser
+
+function getBlockDefinitions(block: Statement[], outerScope: StringMap?): StringMap
+    const scope := StringMap(init: outerScope)
+
+    for stmt of block
+        if stmt.kind = StatementKind.FunctionStatement or stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.EnumStatement 
+                or stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
+            scope.set(key: stmt.identifier, value: stmt)
+        end
+    end
+
+    return scope
+end
+
+function inferPublicInterface(module: Statement[], outerScope: StringMap): StringMap
+    const scope := getBlockDefinitions(block: module, outerScope)
+
+    for stmt of module
+        if stmt.kind = StatementKind.ImportStatement
+            importScope(scope, stmt)
+        end
+    end
+
+    applyScopeToBlock(block: module, scope)
+
+    return scope
+end
+
+public function applyScopeToBlock(block: Statement[], scope: StringMap)
+    for stmt of block
+        if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
+            inferClassFunctionInterface(scope, stmt)
+        elseif stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
+            if stmt.type <> nil
+                resolveType(type: stmt.type, scope)
+            elseif stmt.value?.kind = ExpressionKind.BoolConstant
+                stmt.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
+            end
+        end
+    end
+end
+
+public function inferBlock(block: Statement[], outerScope: StringMap)
+    const blockScope := getBlockDefinitions(block, outerScope)
+
+    
+
+end
+
+function inferClassFunctionInterface(scope: StringMap, stmt: Statement)
+    resolveType(type: stmt.type, scope)
+    for arg of stmt.defnArguments
+        resolveType(type: arg.type, scope)
+    end
+end
+
+function resolveType(type: ParsedType, scope: StringMap)
+    if type.kind = TypeKind.objectType
+        if scope.has(key: type.identifier!)
+            type.stmt := scope.get(key: type.identifier!)
+        else
+            panic(message: "Could not resolve type " + type.identifier)
+        end
+    elseif type.kind = TypeKind.nullableType or type.kind = TypeKind.pointerType
+        resolveType(type: type.ref!, scope)
+    elseif type.kind = TypeKind.arrayType
+        resolveType(type: type.ref!, scope)
+    end
+end

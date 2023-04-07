@@ -1,5 +1,5 @@
 import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"
-import { generateTSImport } from "./tboot"
+import { generateTSImport, importScope } from "./tboot"
 // import goes here
 import { class_Statement, Statement, StatementKind, class_ParsedType, ParsedType, ExpressionKind, TypeKind, class_Expression, Expression, class_DefnArgument, DefnArgument} from "./parser"
 export function generateTS(block:class_Statement[]) {
@@ -7,11 +7,11 @@ const _o = {} as class_generateTS;
  // unknown
 _o.result = [];
 _o.result.push('import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"');
-_o.result.push('import { generateTSImport } from "./tboot"');
-function dumpType(type:class_ParsedType):void {
+_o.result.push('import { generateTSImport, importScope } from "./tboot"');
+function dumpType(type:any):void {
 _o.result.push(" // " + formatParsedType(type));
 }
-function generateBlock(block:class_Statement[],forClass:boolean,atRoot:boolean):void {
+function generateBlock(block:any[],forClass:boolean,atRoot:boolean):void {
  // unknown
 let exportClassifier: any = "";
 if (atRoot) {
@@ -103,7 +103,7 @@ _o.result.push("unknown");
 }
 }
 }
-function generateTSInterface(definition:class_Statement):void {
+function generateTSInterface(definition:any):void {
 if (definition.kind == StatementKind.ClassStatement) {
 _o.result.push("export interface class_" + definition.identifier + " {");
 for (const arg of definition.defnArguments) {
@@ -209,10 +209,12 @@ return generateTSType(type.ref);
 } else if (type.kind == TypeKind.nullableType) {
 return generateTSType(type.ref) + " | null";
 } else if (type.kind == TypeKind.objectType) {
-if (type.identifier == "Token" || type.identifier == "StatementKind" || type.identifier == "ExpressionKind" || type.identifier == "TypeKind") {
-return type.identifier;
+if (type.stmt?.kind == StatementKind.ClassStatement) {
+return "class_" + type.identifier!;
+} else if (type.stmt?.kind == StatementKind.EnumStatement) {
+return type.identifier!;
 }
-return "class_" + type.identifier;
+return "any";
 } else if (type.kind == TypeKind.functionType) {
 return "Function";
 } else if (type.kind == TypeKind.voidType) {
