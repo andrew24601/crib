@@ -50,7 +50,7 @@ blockScope.set(arg.identifier, arg.type);
 InferTypes(stmt.block, blockScope);
 }
 }
-function infer(expr:any):any {
+function infer(expr:class_Expression):class_ParsedType {
 expr.type = ParsedType(TypeKind.invalidType, null, null);
 if (expr.kind == ExpressionKind.IntConstant) {
 expr.type = ParsedType(TypeKind.intType, null, null);
@@ -140,7 +140,7 @@ panic("Cannot invoke non-function");
 }
 return expr.type;
 }
-function getFieldType(classDefinition:any,identifier:string):any {
+function getFieldType(classDefinition:class_Statement,identifier:string):class_ParsedType {
 for (const arg of classDefinition.defnArguments) {
 if (arg.identifier == identifier) {
 return arg.type;
@@ -160,7 +160,7 @@ return ParsedType(TypeKind.functionType, null, stmt);
 panic("Field " + identifier + " not found in class " + classDefinition.identifier);
 return ParsedType(TypeKind.invalidType, null, null);
 }
-function resolve(t:any):any {
+function resolve(t:class_ParsedType):class_ParsedType {
 if (t.kind == TypeKind.objectType && t.ref == null) {
 if (scope.has(t.identifier)) {
 t = scope.get(t.identifier);
@@ -198,7 +198,7 @@ scopeSet.delete(stmt.identifier);
 }
 }
 descopeBlock(block);
-function descopeBlock(block:any[]):void {
+function descopeBlock(block:class_Statement[]):void {
  // unknown
 let idx: any = 0;
 while (idx < block.length) {
@@ -230,7 +230,7 @@ stmt.lhs = descopeExpression(stmt.lhs!);
 }
 }
 }
-function descopeExpression(expr:any):any {
+function descopeExpression(expr:class_Expression):class_Expression {
 if (expr.kind == ExpressionKind.Identifier) {
 if (scopeSet.has(expr.value!)) {
 expr.value = scopeSet.get(expr.value!);

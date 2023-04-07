@@ -1,10 +1,10 @@
 import { descopeCode } from "./bootstrap"
 import { Tokeniser } from "./tokeniser"
-import { Parser, class_Statement, StatementKind, Statement } from "./parser"
+import { Parser, class_Statement, StatementKind, Statement, ParsedType, TypeKind } from "./parser"
 import { readFileSync, writeFileSync } from "fs";
 import { StringMap, class_StringMap } from "./runtime"
 import { generateTS } from "./generateTS"
-import { getBlockDefinitions, inferPublicInterface } from "./infer"
+import { getBlockDefinitions, inferPublicInterface, inferBlock } from "./infer"
 
 function parseModule(path: string): class_Statement[] {
     const text = readFileSync(path, "utf-8");
@@ -57,9 +57,15 @@ const block = parseModule(`./${filename}.crib`);
 
 const initialScope = StringMap(null);
 
-initialScope.set("StringMap", Statement(StatementKind.ClassStatement))
+//initialScope.set("StringMap", Statement(StatementKind.ClassStatement));
 
-console.log(inferPublicInterface(block, initialScope).v.keys());
+const stringMapType = ParsedType(TypeKind.classType, null, Statement(StatementKind.ClassStatement))
+stringMapType.stmt!.identifier = "StringMap";
+initialScope.set("StringMap", stringMapType);
+
+inferPublicInterface(block, initialScope).v.keys();
+
+console.log(inferBlock(block, initialScope).v.keys());
 
 //const validator = ResolveTypes(block, initialScope);
 

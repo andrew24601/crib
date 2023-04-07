@@ -1,5 +1,5 @@
 import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"
-import { generateTSImport } from "./tboot"
+import { generateTSImport, importScope } from "./tboot"
 export enum Token {
 tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret, tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign, tkAnd, tkOr, tkConst, tkLet, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString, tkImport, tkFrom, tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang, tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals, tkEOF, tkInvalid
 };
@@ -20,15 +20,15 @@ return ch >= 48 && ch <= 57;
 }
 export function Tokeniser(text:string) {
 const _o = {} as class_Tokeniser;
- // unknown
-const length: any = text.length;
+ // int
+const length: number = text.length;
  // unknown
 let pos: any = 0;
  // unknown
 let tokenStart: any = 0;
  // unknown
 let hasPutback: any = false;
- // nullable<object>
+ // nullable<object<Token>>
 let lastToken: Token | null = null;
  // unknown
 _o.line = 1;

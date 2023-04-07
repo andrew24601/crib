@@ -8,12 +8,12 @@ const _o = {} as class_generateTS;
 _o.result = [];
 _o.result.push('import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"');
 _o.result.push('import { generateTSImport, importScope } from "./tboot"');
-function dumpType(type:any):void {
+function dumpType(type:class_ParsedType):void {
 _o.result.push(" // " + formatParsedType(type));
 }
-function generateBlock(block:any[],forClass:boolean,atRoot:boolean):void {
- // unknown
-let exportClassifier: any = "";
+function generateBlock(block:class_Statement[],forClass:boolean,atRoot:boolean):void {
+ // string
+let exportClassifier: string = "";
 if (atRoot) {
 exportClassifier = "export ";
 }
@@ -103,7 +103,7 @@ _o.result.push("unknown");
 }
 }
 }
-function generateTSInterface(definition:any):void {
+function generateTSInterface(definition:class_Statement):void {
 if (definition.kind == StatementKind.ClassStatement) {
 _o.result.push("export interface class_" + definition.identifier + " {");
 for (const arg of definition.defnArguments) {
@@ -230,10 +230,10 @@ export function generateDefnArguments(args:class_DefnArgument[]):string {
 if (args.length == 0) {
 return "";
 }
- // unknown
-let result: any = generateDefnArgument(__index_get(args, 0));
- // unknown
-let idx: any = 1;
+ // string
+let result: string = generateDefnArgument(__index_get(args, 0));
+ // int
+let idx: number = 1;
 while (idx < args.length) {
 result = result + "," + generateDefnArgument(__index_get(args, idx));
 idx = idx + 1;
@@ -244,10 +244,10 @@ export function generateArguments(args:class_Expression[]):string {
 if (args.length == 0) {
 return "";
 }
- // unknown
-let result: any = generateJSExpression(__index_get(args, 0));
- // unknown
-let idx: any = 1;
+ // string
+let result: string = generateJSExpression(__index_get(args, 0));
+ // int
+let idx: number = 1;
 while (idx < args.length) {
 result = result + ", " + generateJSExpression(__index_get(args, idx));
 idx = idx + 1;
@@ -257,8 +257,8 @@ return result;
 export function generateJSEnumValues(stmt:class_Statement):string {
  // unknown
 let result: any = __index_get(stmt.identifierList, 0);
- // unknown
-let idx: any = 1;
+ // int
+let idx: number = 1;
 while (idx < stmt.identifierList.length) {
 result = result + ", " + __index_get(stmt.identifierList, idx);
 idx = idx + 1;
