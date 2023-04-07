@@ -5,6 +5,14 @@ import { readFileSync, writeFileSync } from "fs";
 import { StringMap, class_StringMap } from "./runtime"
 import { generateTS } from "./generateTS"
 import { getBlockDefinitions, inferPublicInterface, inferBlock } from "./infer"
+import { join } from "path"
+
+interface CribModule {
+    path: string;
+    block: class_Statement[];
+    definitions: class_StringMap;
+    scope?: class_StringMap;
+}
 
 function parseModule(path: string): class_Statement[] {
     const text = readFileSync(path, "utf-8");
@@ -51,26 +59,70 @@ export function generateTSImport(stmt: class_Statement) {
     return `import { ${imports.join(", ")}} from "${stmt.identifier}"`
 }
 
+
+function load(path: string) {
+    const modules = new Map<string, CribModule>();
+    const loading: CribModule[] = [];
+
+    function loadModule(path: string):CribModule {
+        console.log("loading", path)
+        if (modules.has(path)) {
+            return modules.get(path)!;
+        }
+        const block = parseModule(path);
+        const definitions = getBlockDefinitions(block, null)
+        const module: CribModule = {
+            path,
+            block,
+            definitions
+        }
+        modules.set(path, module);
+        loading.push(module);
+        return module;
+    }
+
+    const mainModule = loadModule(path);
+    while (loading.length > 0) {
+        const module = loading.pop()!;
+
+        const moduleScope = StringMap(null);
+        const stringMapType = ParsedType(TypeKind.classType, null, Statement(StatementKind.ClassStatement))
+        stringMapType.stmt!.identifier = "StringMap";
+        moduleScope.set("StringMap", stringMapType);
+        
+        for (const stmt of module.block) {
+            if (stmt.kind === StatementKind.ImportStatement) {
+                const ref = loadModule(join(module.path, "..", stmt.identifier + ".crib"));
+
+                for (const ident of stmt.identifierList) {
+                    const defn = ref.definitions.get(ident)
+                    if (!defn) {
+                        throw new Error(`Module ${stmt.identifier} does not export ${ident}`)
+                    }
+                    moduleScope.set(ident, defn);
+                }
+            }
+        }
+
+        inferPublicInterface(module.block, moduleScope);
+
+        module.scope = moduleScope;
+    }
+
+    return mainModule;
+}
+
 const filename = process.argv[2];
 
-const block = parseModule(`./${filename}.crib`);
+const path = join(process.cwd(), filename + ".crib");
+const mainModule = load(path)
 
-const initialScope = StringMap(null);
-
-//initialScope.set("StringMap", Statement(StatementKind.ClassStatement));
-
-const stringMapType = ParsedType(TypeKind.classType, null, Statement(StatementKind.ClassStatement))
-stringMapType.stmt!.identifier = "StringMap";
-initialScope.set("StringMap", stringMapType);
-
-inferPublicInterface(block, initialScope).v.keys();
-
-console.log(inferBlock(block, initialScope).v.keys());
+console.log(inferBlock(mainModule.block, mainModule.scope!).v.keys());
 
 //const validator = ResolveTypes(block, initialScope);
 
-descopeCode([], block, null, false)
+descopeCode([], mainModule.block, null, false)
 
-const generated = generateTS(block);
+const generated = generateTS(mainModule.block);
 
 writeFileSync(`${filename}.ts`, generated.result.join("\n"));

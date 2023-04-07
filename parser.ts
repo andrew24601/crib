@@ -121,8 +121,8 @@ isPublic:boolean;
 export function Parser(tokeniser:class_Tokeniser) {
 const _o = {} as class_Parser;
 function acceptToken(token:Token):boolean {
- // object
-const tk: any = tokeniser.nextToken();
+ // object<Token>
+const tk: Token = tokeniser.nextToken();
 if (tk == token) {
 return true;
 }
@@ -130,8 +130,8 @@ tokeniser.putback();
 return false;
 }
 function expectToken(expected:Token):string {
- // object
-const tk: any = tokeniser.nextToken();
+ // object<Token>
+const tk: Token = tokeniser.nextToken();
 if (tk != expected) {
 panic("expected " + tokeniser.line);
 }
@@ -141,10 +141,10 @@ function expectIdentifier():string {
 return expectToken(Token.tkIdentifier);
 }
 function parseType():class_ParsedType {
- // unknown
-let reference: any = false;
- // object
-const tk: any = tokeniser.nextToken();
+ // bool
+let reference: boolean = false;
+ // object<Token>
+const tk: Token = tokeniser.nextToken();
  // object<ParsedType>
 let type: class_ParsedType = sharedUnknownType;
  // string
@@ -182,8 +182,8 @@ return type;
 return type;
 }
 function parseStatement():class_Statement | null {
- // object
-let tk: any = tokeniser.nextToken();
+ // object<Token>
+let tk: Token = tokeniser.nextToken();
  // nullable<object<Statement>>
 let stmt: class_Statement | null = null;
  // nullable<string>
@@ -194,8 +194,8 @@ let type: class_ParsedType = sharedUnknownType;
 let value: class_Expression | null = null;
  // array<object<Statement>>
 let block: class_Statement[] = [];
- // unknown
-let isPublic: any = false;
+ // bool
+let isPublic: boolean = false;
 if (tk == Token.tkElse || tk == Token.tkElseif || tk == Token.tkEnd || tk == Token.tkUntil || tk == Token.tkEOF) {
 tokeniser.putback();
 return null;
@@ -355,8 +355,8 @@ return result;
 }
 _o.parseBlock = parseBlock;
 function parseDefnArgument():class_DefnArgument {
- // unknown
-let isPublic: any = false;
+ // bool
+let isPublic: boolean = false;
 if (acceptToken(Token.tkPublic)) {
 isPublic = true;
 }
@@ -383,8 +383,8 @@ return result;
 function parseExpression():class_Expression {
  // object<Expression>
 let left: class_Expression = parseAndExpression();
- // object
-let tk: any = tokeniser.nextToken();
+ // object<Token>
+let tk: Token = tokeniser.nextToken();
 while (tk == Token.tkOr) {
 left = Expression(ExpressionKind.Or, left, parseAndExpression());
 tk = tokeniser.nextToken();
@@ -395,8 +395,8 @@ return left;
 function parseAndExpression():class_Expression {
  // object<Expression>
 let left: class_Expression = parseComparisonExpression();
- // object
-let tk: any = tokeniser.nextToken();
+ // object<Token>
+let tk: Token = tokeniser.nextToken();
 while (tk == Token.tkAnd) {
 left = Expression(ExpressionKind.And, left, parseComparisonExpression());
 tk = tokeniser.nextToken();
@@ -407,8 +407,8 @@ return left;
 function parseComparisonExpression():class_Expression {
  // object<Expression>
 let left: class_Expression = parseAddSub();
- // object
-let tk: any = tokeniser.nextToken();
+ // object<Token>
+let tk: Token = tokeniser.nextToken();
 if (tk == Token.tkLessThan) {
 left = Expression(ExpressionKind.LessThan, left, parseAddSub());
 } else if (tk == Token.tkLessThanEquals) {
@@ -429,8 +429,8 @@ return left;
 function parseAddSub():class_Expression {
  // object<Expression>
 let left: class_Expression = parseTerm();
- // object
-let tk: any = tokeniser.nextToken();
+ // object<Token>
+let tk: Token = tokeniser.nextToken();
 while (tk == Token.tkPlus || tk == Token.tkMinus) {
 if (tk == Token.tkPlus) {
 left = Expression(ExpressionKind.Add, left, parseTerm());
@@ -445,8 +445,8 @@ return left;
 function parseTerm():class_Expression {
  // object<Expression>
 let left: class_Expression = parseFactor();
- // object
-let tk: any = tokeniser.nextToken();
+ // object<Token>
+let tk: Token = tokeniser.nextToken();
 while (tk == Token.tkTimes || tk == Token.tkSlash) {
 if (tk == Token.tkTimes) {
 left = Expression(ExpressionKind.Multiply, left, parseFactor());
@@ -459,8 +459,8 @@ tokeniser.putback();
 return left;
 }
 function parseFactor():class_Expression {
- // object
-const tk: any = tokeniser.nextToken();
+ // object<Token>
+const tk: Token = tokeniser.nextToken();
  // nullable<object<Expression>>
 let e: class_Expression | null = null;
  // nullable<object<Expression>>

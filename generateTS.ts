@@ -4,7 +4,7 @@ import { generateTSImport, importScope } from "./tboot"
 import { class_Statement, Statement, StatementKind, class_ParsedType, ParsedType, ExpressionKind, TypeKind, class_Expression, Expression, class_DefnArgument, DefnArgument} from "./parser"
 export function generateTS(block:class_Statement[]) {
 const _o = {} as class_generateTS;
- // unknown
+ // array<string>
 _o.result = [];
 _o.result.push('import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"');
 _o.result.push('import { generateTSImport, importScope } from "./tboot"');
@@ -129,7 +129,7 @@ generateBlock(block, false, true);
 return _o;
 }
 export interface class_generateTS {
-result:any;
+result:string[];
 }
 export function generateJSExpression(expr:class_Expression):string {
 if (expr == null) {
@@ -219,6 +219,8 @@ return "any";
 return "Function";
 } else if (type.kind == TypeKind.voidType) {
 return "void";
+} else if (type.kind == TypeKind.enumType) {
+return type.identifier!;
 } else {
 return "any";
 }
@@ -255,8 +257,8 @@ idx = idx + 1;
 return result;
 }
 export function generateJSEnumValues(stmt:class_Statement):string {
- // unknown
-let result: any = __index_get(stmt.identifierList, 0);
+ // string
+let result: string = __index_get(stmt.identifierList, 0);
  // int
 let idx: number = 1;
 while (idx < stmt.identifierList.length) {

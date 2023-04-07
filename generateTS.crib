@@ -1,7 +1,7 @@
 import Statement, StatementKind, ParsedType, ExpressionKind, TypeKind, Expression, DefnArgument from ./parser
 
 class generateTS(block:Statement[]^)
-    public const result := string[]
+    public const result:string[]
 
     result.push(value: 'import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"')
     result.push(value: 'import { generateTSImport, importScope } from "./tboot"')
@@ -233,6 +233,8 @@ function generateTSType(type: ParsedType?): string
         return "Function"
     elseif type.kind = TypeKind.voidType
         return "void"
+    elseif type.kind = TypeKind.enumType
+        return type.identifier!
     else
         return "any"
     end

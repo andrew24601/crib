@@ -20,16 +20,12 @@ function inferPublicInterface(module: Statement[], outerScope: StringMap): Strin
     const scope := getBlockDefinitions(block: module, outerScope)
 
     for stmt of module
-        if stmt.kind = StatementKind.ImportStatement
-            importScope(scope, stmt)
-        end
-    end
-
-    for stmt of module
         if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
             inferClassFunctionInterface(scope, stmt)
         elseif stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
-            if stmt.type <> nil
+            if stmt.type = nil
+                stmt.type := inferPublicExpressionType(expr: stmt.value!, scope)
+            elseif stmt.type <> nil
                 resolveType(type: stmt.type, scope)
             end
         end
@@ -65,6 +61,17 @@ function flattenObjectType(type: ParsedType): ParsedType
     return type
 end
 
+function inferPublicExpressionType(expr: Expression, scope: StringMap): ParsedType
+    if expr.kind = ExpressionKind.IntConstant
+        return ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
+    elseif expr.kind = ExpressionKind.StringConstant
+        return ParsedType(kind: TypeKind.stringType, ref: nil, stmt: nil)
+    elseif expr.kind = ExpressionKind.BoolConstant
+        return ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
+    end
+    return ParsedType(kind: TypeKind.unknownType, ref: nil, stmt: nil)
+end
+
 function inferExpressionType(expr: Expression, scope: StringMap): ParsedType
     let returnType: ParsedType?
     if expr.kind = ExpressionKind.Identifier
@@ -77,12 +84,16 @@ function inferExpressionType(expr: Expression, scope: StringMap): ParsedType
         return ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
     elseif expr.kind = ExpressionKind.StringConstant
         return ParsedType(kind: TypeKind.stringType, ref: nil, stmt: nil)
+    elseif expr.kind = ExpressionKind.BoolConstant
+        return ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
     elseif expr.kind = ExpressionKind.Dot
         const type := flattenObjectType(type: inferExpressionType(expr: expr.left!, scope))
         if type.kind = TypeKind.objectType and type.stmt?.kind = StatementKind.ClassStatement
             return getFieldType(classDefinition: type.stmt, identifier: expr.value!)
         elseif type.kind = TypeKind.enumDefinitionType
-            return ParsedType(kind: TypeKind.enumType, ref: nil, stmt: type.stmt)
+            returnType := ParsedType(kind: TypeKind.enumType, ref: nil, stmt: type.stmt)
+            returnType.identifier := type.stmt!.identifier
+            return returnType
         elseif type.kind = TypeKind.stringType and expr.value = "length"
             return ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
         elseif type.kind = TypeKind.arrayType and expr.value = "length"
@@ -101,7 +112,16 @@ function inferExpressionType(expr: Expression, scope: StringMap): ParsedType
             return returnType
         else
             panic(message: "Not a function or class type")
-        end   
+        end
+    elseif expr.kind = ExpressionKind.Index
+        const type := flattenObjectType(type: inferExpressionType(expr: expr.left!, scope))
+        if type.kind = TypeKind.arrayType
+            return type.ref!
+        elseif type.kind = TypeKind.stringType
+            return ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
+        else
+            panic(message: "Not an array type")
+        end
     end
     return ParsedType(kind: TypeKind.unknownType, ref: nil, stmt: nil)
 end
@@ -130,12 +150,6 @@ end
 public function inferBlock(block: Statement[], outerScope: StringMap): StringMap
     const scope := getBlockDefinitions(block, outerScope)
 
-    for stmt of block
-        if stmt.kind = StatementKind.ImportStatement
-            importScope(scope, stmt)
-        end
-    end
-
     applyScopeToBlock(block, scope)
 
     return scope
@@ -145,6 +159,9 @@ function inferClassFunctionInterface(scope: StringMap, stmt: Statement)
     resolveType(type: stmt.type, scope)
     for arg of stmt.defnArguments
         resolveType(type: arg.type, scope)
+    end
+    if stmt.kind = StatementKind.ClassStatement
+        inferPublicInterface(module: stmt.block, outerScope: scope)
     end
 end
 

@@ -6,11 +6,11 @@ function InferTypes(block:Statement[]^, parent: StringMap)
 
     for stmt of block
         if stmt.kind = StatementKind.ClassStatement 
-            scope.set(key: stmt.identifier, value: ParsedType(kind: TypeKind.classType, ref: nil, stmt))
+            scope.set(key: stmt.identifier!, value: ParsedType(kind: TypeKind.classType, ref: nil, stmt))
         elseif stmt.kind = StatementKind.EnumStatement
-            scope.set(key: stmt.identifier, value: ParsedType(kind: TypeKind.enumDefinitionType, ref: nil, stmt))
+            scope.set(key: stmt.identifier!, value: ParsedType(kind: TypeKind.enumDefinitionType, ref: nil, stmt))
         elseif stmt.kind = StatementKind.FunctionStatement
-            scope.set(key: stmt.identifier, value: ParsedType(kind: TypeKind.functionType, ref: nil, stmt))
+            scope.set(key: stmt.identifier!, value: ParsedType(kind: TypeKind.functionType, ref: nil, stmt))
         end
     end
 
@@ -89,8 +89,8 @@ function InferTypes(block:Statement[]^, parent: StringMap)
             infer(expr: expr.left!)
             expr.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
         elseif expr.kind = ExpressionKind.Identifier
-            if scope.has(key: expr.value)
-                expr.type := scope.get(identifier: expr.value)
+            if scope.has(key: expr.value!)
+                expr.type := scope.get(identifier: expr.value!)
             end
         elseif expr.kind = ExpressionKind.Dot or expr.kind = ExpressionKind.OptDot
             infer(expr: expr.left!)
@@ -163,17 +163,17 @@ function InferTypes(block:Statement[]^, parent: StringMap)
 
     function resolve(t: ParsedType^): ParsedType
         if t.kind = TypeKind.objectType and t.ref = nil
-            if scope.has(key: t.identifier)
-                t := scope.get(identifier: t.identifier)
+            if scope.has(key: t.identifier!)
+                t := scope.get(identifier: t.identifier!)
             else
-                panic(message: "Type " + t.identifier + " not found")
+                panic(message: "Type " + t.identifier! + " not found")
             end
             if t.kind = TypeKind.classType
                 t := ParsedType(kind: TypeKind.objectType, ref: t, stmt: nil)
             elseif t.kind = TypeKind.enumDefinitionType
                 t := ParsedType(kind: TypeKind.enumType, ref: t, stmt: nil)
             else
-                panic(message: "Type " + t.identifier + " is not a class or enum")
+                panic(message: "Type " + t.identifier! + " is not a class or enum")
             end
         end
         return t
@@ -193,9 +193,9 @@ function descopeCode(args: DefnArgument[]^, block: Statement[]^, outerScope: Str
     for stmt of block
         if stmt.kind = StatementKind.ConstStatement or stmt.kind = StatementKind.LetStatement
             if stmt.isPublic and forClass
-                scopeSet.add(key: stmt.identifier, value: "_o." + stmt.identifier)
+                scopeSet.add(key: stmt.identifier!, value: "_o." + stmt.identifier)
             else
-                scopeSet.delete(key: stmt.identifier)
+                scopeSet.delete(key: stmt.identifier!)
             end
         end
     end    

@@ -20,15 +20,12 @@ export function inferPublicInterface(module:class_Statement[],outerScope:class_S
  // object<StringMap>
 const scope: class_StringMap = getBlockDefinitions(module, outerScope);
 for (const stmt of module) {
-if (stmt.kind == StatementKind.ImportStatement) {
-importScope(scope, stmt);
-}
-}
-for (const stmt of module) {
 if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.FunctionStatement) {
 inferClassFunctionInterface(scope, stmt);
 } else if (stmt.kind == StatementKind.LetStatement || stmt.kind == StatementKind.ConstStatement) {
-if (stmt.type != null) {
+if (stmt.type == null) {
+stmt.type = inferPublicExpressionType(stmt.value!, scope);
+} else if (stmt.type != null) {
 resolveType(stmt.type, scope);
 }
 }
@@ -60,6 +57,16 @@ return flattenObjectType(type.ref!);
 }
 return type;
 }
+export function inferPublicExpressionType(expr:class_Expression,scope:class_StringMap):class_ParsedType {
+if (expr.kind == ExpressionKind.IntConstant) {
+return ParsedType(TypeKind.intType, null, null);
+} else if (expr.kind == ExpressionKind.StringConstant) {
+return ParsedType(TypeKind.stringType, null, null);
+} else if (expr.kind == ExpressionKind.BoolConstant) {
+return ParsedType(TypeKind.boolType, null, null);
+}
+return ParsedType(TypeKind.unknownType, null, null);
+}
 export function inferExpressionType(expr:class_Expression,scope:class_StringMap):class_ParsedType {
  // nullable<object<ParsedType>>
 let returnType: class_ParsedType | null = null;
@@ -73,13 +80,17 @@ panic("Could not resolve identifier " + expr.value);
 return ParsedType(TypeKind.intType, null, null);
 } else if (expr.kind == ExpressionKind.StringConstant) {
 return ParsedType(TypeKind.stringType, null, null);
+} else if (expr.kind == ExpressionKind.BoolConstant) {
+return ParsedType(TypeKind.boolType, null, null);
 } else if (expr.kind == ExpressionKind.Dot) {
  // unknown
 const type: any = flattenObjectType(inferExpressionType(expr.left!, scope));
 if (type.kind == TypeKind.objectType && type.stmt?.kind == StatementKind.ClassStatement) {
 return getFieldType(type.stmt, expr.value!);
 } else if (type.kind == TypeKind.enumDefinitionType) {
-return ParsedType(TypeKind.enumType, null, type.stmt);
+returnType = ParsedType(TypeKind.enumType, null, type.stmt);
+returnType.identifier = type.stmt!.identifier;
+return returnType;
 } else if (type.kind == TypeKind.stringType && expr.value == "length") {
 return ParsedType(TypeKind.intType, null, null);
 } else if (type.kind == TypeKind.arrayType && expr.value == "length") {
@@ -98,6 +109,16 @@ returnType.identifier = type.stmt.identifier;
 return returnType;
 } else {
 panic("Not a function or class type");
+}
+} else if (expr.kind == ExpressionKind.Index) {
+ // unknown
+const type: any = flattenObjectType(inferExpressionType(expr.left!, scope));
+if (type.kind == TypeKind.arrayType) {
+return type.ref!;
+} else if (type.kind == TypeKind.stringType) {
+return ParsedType(TypeKind.intType, null, null);
+} else {
+panic("Not an array type");
 }
 }
 return ParsedType(TypeKind.unknownType, null, null);
@@ -125,11 +146,6 @@ return ParsedType(TypeKind.invalidType, null, null);
 export function inferBlock(block:class_Statement[],outerScope:class_StringMap):class_StringMap {
  // object<StringMap>
 const scope: class_StringMap = getBlockDefinitions(block, outerScope);
-for (const stmt of block) {
-if (stmt.kind == StatementKind.ImportStatement) {
-importScope(scope, stmt);
-}
-}
 applyScopeToBlock(block, scope);
 return scope;
 }
@@ -137,6 +153,9 @@ export function inferClassFunctionInterface(scope:class_StringMap,stmt:class_Sta
 resolveType(stmt.type, scope);
 for (const arg of stmt.defnArguments) {
 resolveType(arg.type, scope);
+}
+if (stmt.kind == StatementKind.ClassStatement) {
+inferPublicInterface(stmt.block, scope);
 }
 }
 export function resolveType(type:class_ParsedType,scope:class_StringMap):void {

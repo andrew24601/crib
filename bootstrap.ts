@@ -5,15 +5,15 @@ import { Token, class_Tokeniser, Tokeniser} from "./tokeniser"
 // import goes here
 import { class_Statement, Statement, StatementKind, class_ParsedType, ParsedType, ExpressionKind, TypeKind, class_Expression, Expression, class_DefnArgument, DefnArgument} from "./parser"
 export function InferTypes(block:class_Statement[],parent:class_StringMap):void {
- // unknown
-const scope: any = StringMap(parent);
+ // object<StringMap>
+const scope: class_StringMap = StringMap(parent);
 for (const stmt of block) {
 if (stmt.kind == StatementKind.ClassStatement) {
-scope.set(stmt.identifier, ParsedType(TypeKind.classType, null, stmt));
+scope.set(stmt.identifier!, ParsedType(TypeKind.classType, null, stmt));
 } else if (stmt.kind == StatementKind.EnumStatement) {
-scope.set(stmt.identifier, ParsedType(TypeKind.enumDefinitionType, null, stmt));
+scope.set(stmt.identifier!, ParsedType(TypeKind.enumDefinitionType, null, stmt));
 } else if (stmt.kind == StatementKind.FunctionStatement) {
-scope.set(stmt.identifier, ParsedType(TypeKind.functionType, null, stmt));
+scope.set(stmt.identifier!, ParsedType(TypeKind.functionType, null, stmt));
 }
 }
 for (const stmt of block) {
@@ -90,8 +90,8 @@ expr.type = ParsedType(TypeKind.intType, null, null);
 infer(expr.left!);
 expr.type = ParsedType(TypeKind.boolType, null, null);
 } else if (expr.kind == ExpressionKind.Identifier) {
-if (scope.has(expr.value)) {
-expr.type = scope.get(expr.value);
+if (scope.has(expr.value!)) {
+expr.type = scope.get(expr.value!);
 }
 } else if (expr.kind == ExpressionKind.Dot || expr.kind == ExpressionKind.OptDot) {
 infer(expr.left!);
@@ -162,25 +162,25 @@ return ParsedType(TypeKind.invalidType, null, null);
 }
 function resolve(t:class_ParsedType):class_ParsedType {
 if (t.kind == TypeKind.objectType && t.ref == null) {
-if (scope.has(t.identifier)) {
-t = scope.get(t.identifier);
+if (scope.has(t.identifier!)) {
+t = scope.get(t.identifier!);
 } else {
-panic("Type " + t.identifier + " not found");
+panic("Type " + t.identifier! + " not found");
 }
 if (t.kind == TypeKind.classType) {
 t = ParsedType(TypeKind.objectType, t, null);
 } else if (t.kind == TypeKind.enumDefinitionType) {
 t = ParsedType(TypeKind.enumType, t, null);
 } else {
-panic("Type " + t.identifier + " is not a class or enum");
+panic("Type " + t.identifier! + " is not a class or enum");
 }
 }
 return t;
 }
 }
 export function descopeCode(args:class_DefnArgument[],block:class_Statement[],outerScope:class_StringMap | null,forClass:boolean):void {
- // unknown
-let scopeSet: any = StringMap(outerScope);
+ // object<StringMap>
+let scopeSet: class_StringMap = StringMap(outerScope);
 for (const arg of args) {
 if (arg.isPublic && forClass) {
 scopeSet.add(arg.identifier, "_o." + arg.identifier);
@@ -191,16 +191,16 @@ scopeSet.delete(arg.identifier);
 for (const stmt of block) {
 if (stmt.kind == StatementKind.ConstStatement || stmt.kind == StatementKind.LetStatement) {
 if (stmt.isPublic && forClass) {
-scopeSet.add(stmt.identifier, "_o." + stmt.identifier);
+scopeSet.add(stmt.identifier!, "_o." + stmt.identifier);
 } else {
-scopeSet.delete(stmt.identifier);
+scopeSet.delete(stmt.identifier!);
 }
 }
 }
 descopeBlock(block);
 function descopeBlock(block:class_Statement[]):void {
- // unknown
-let idx: any = 0;
+ // int
+let idx: number = 0;
 while (idx < block.length) {
  // unknown
 const stmt: any = __index_get(block, idx);

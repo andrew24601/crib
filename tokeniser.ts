@@ -22,15 +22,15 @@ export function Tokeniser(text:string) {
 const _o = {} as class_Tokeniser;
  // int
 const length: number = text.length;
- // unknown
-let pos: any = 0;
- // unknown
-let tokenStart: any = 0;
- // unknown
-let hasPutback: any = false;
+ // int
+let pos: number = 0;
+ // int
+let tokenStart: number = 0;
+ // bool
+let hasPutback: boolean = false;
  // nullable<object<Token>>
 let lastToken: Token | null = null;
- // unknown
+ // int
 _o.line = 1;
 function nextToken():Token {
 if (hasPutback) {
@@ -62,8 +62,8 @@ if (pos == length) {
 return Token.tkEOF;
 }
 tokenStart = pos;
- // unknown
-let ch: any = __index_get(text, pos);
+ // int
+let ch: number = __index_get(text, pos);
 pos = pos + 1;
 if (isLeadingIdentifier(ch)) {
 while (pos < length && isTrailingIdentifier(__index_get(text, pos))) {
@@ -143,7 +143,7 @@ pos = pos + 1;
 return Token.tkStringConstant;
 }
  // unknown
-let match: any = Token.tkInvalid;
+let match: Token = Token.tkInvalid;
 if (ch == 40) {
 match = Token.tkLeftParen;
 } else if (ch == 41) {
@@ -221,7 +221,7 @@ return match;
 return _o;
 }
 export interface class_Tokeniser {
-line:any;
+line:number;
 nextToken():Token;
 putback():void;
 value():string;

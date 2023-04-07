@@ -1,0 +1,5 @@
+import Token, Tokeniser from ./tokeniser
+
+function parser(tokeniser: Tokeniser)
+    let tk := tokeniser.nextToken()
+end
