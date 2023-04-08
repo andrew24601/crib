@@ -1,17 +1,17 @@
 import Token, Tokeniser from ./tokeniser
 
-enum StatementKind(ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement,
+public enum StatementKind(ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement,
     ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement)
 
-enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract,
+public enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract,
     LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate,
     Invalid)
 
-enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType)
+public enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType)
 
 const sharedUnknownType := ParsedType(kind: TypeKind.unknownType, ref: nil, stmt: nil)
 
-class Expression(public kind: ExpressionKind, public left: Expression?, public right: Expression?)
+public class Expression(public kind: ExpressionKind, public left: Expression?, public right: Expression?)
     public let value: string?
     public let indexes: Expression[]
     public let identifiers: string[]
@@ -19,18 +19,18 @@ class Expression(public kind: ExpressionKind, public left: Expression?, public r
     public let line := 0
 end
 
-class ParsedType(public kind: TypeKind, public ref: ParsedType?, public stmt: Statement?)
+public class ParsedType(public kind: TypeKind, public ref: ParsedType?, public stmt: Statement?)
     public let identifier: string?
     public let parameters: ParsedType[]
 end
 
-class DefnArgument(public identifier: string, public type: ParsedType, public isPublic: bool)
+public class DefnArgument(public identifier: string, public type: ParsedType, public isPublic: bool)
     
 end
 
-class ElseIfClause(public value: Expression, public block: Statement[]) end
+public class ElseIfClause(public value: Expression, public block: Statement[]) end
 
-class Statement(public kind: StatementKind)
+public class Statement(public kind: StatementKind)
     public let identifier: string?
     public let type: ParsedType := sharedUnknownType
     public let value: Expression?
@@ -159,6 +159,7 @@ class Parser(tokeniser: Tokeniser)
         elseif tk = Token.tkEnum
             stmt := Statement(kind: StatementKind.EnumStatement)
             stmt.identifier := expectIdentifier()
+            stmt.isPublic := isPublic
             expectToken(expected: Token.tkLeftParen)
 
             stmt.identifierList := string[]

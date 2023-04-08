@@ -51,6 +51,10 @@ export function generateTSImport(stmt: class_Statement) {
         if (!defn) {
             throw new Error(`Module ${stmt.identifier} does not export ${ident}`)
         }
+        if (!defn.isPublic) {
+            console.log(`Module ${stmt.identifier} does not export ${ident} publicly`)
+//            throw new Error(`Module ${stmt.identifier} does not export ${ident} publicly`)
+        }
         if (defn.kind === StatementKind.ClassStatement)
             imports.push("class_" + ident);
         imports.push(ident);

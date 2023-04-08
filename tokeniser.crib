@@ -1,4 +1,4 @@
-enum Token(tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, 
+public enum Token(tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, 
     tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret,
     tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign,
     tkAnd, tkOr, tkConst, tkLet, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString,
@@ -26,7 +26,7 @@ function isDigit(ch: int) : bool
     return ch >= 48 and ch <= 57
 end
 
-class Tokeniser(text: string^)
+public class Tokeniser(text: string^)
     const length := text.length
     let pos := 0
     let tokenStart := 0

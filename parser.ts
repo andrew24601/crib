@@ -237,6 +237,7 @@ return stmt;
 } else if (tk == Token.tkEnum) {
 stmt = Statement(StatementKind.EnumStatement);
 stmt.identifier = expectIdentifier();
+stmt.isPublic = isPublic;
 expectToken(Token.tkLeftParen);
 stmt.identifierList = [];
 stmt.identifierList.push(expectIdentifier());
