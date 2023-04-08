@@ -63,13 +63,13 @@ export function generateTSImport(stmt: class_Statement) {
     return `import { ${imports.join(", ")}} from "${stmt.identifier}"`
 }
 
+const modules = new Map<string, CribModule>();
 
 function load(path: string) {
-    const modules = new Map<string, CribModule>();
     const loading: CribModule[] = [];
 
     function loadModule(path: string):CribModule {
-        console.log("loading", path)
+//        console.log("loading", path)
         if (modules.has(path)) {
             return modules.get(path)!;
         }
@@ -118,15 +118,18 @@ function load(path: string) {
 
 const filename = process.argv[2];
 
-const path = join(process.cwd(), filename + ".crib");
-const mainModule = load(path)
+const path = join(process.cwd(), filename);
+load(path)
 
-console.log(inferBlock(mainModule.block, mainModule.scope!).v.keys());
+
+for (const m of modules.values()) {
+    inferBlock(m.block, m.scope!).v.keys();
 
 //const validator = ResolveTypes(block, initialScope);
 
-descopeCode([], mainModule.block, null, false)
+    descopeCode([], m.block, null, false)
 
-const generated = generateTS(mainModule.block);
+    const generated = generateTS(m.block);
 
-writeFileSync(`${filename}.ts`, generated.result.join("\n"));
+    writeFileSync(m.path.substring(0, m.path.length - 5) + ".ts", generated.result.join("\n"));
+}

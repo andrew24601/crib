@@ -1,10 +1,12 @@
 {
-    "type": "module",
     "dependencies": {
         "@types/node": "^18.15.11",
+        "esbuild": "^0.17.15",
         "typescript": "^5.0.3"
     },
     "scripts": {
-        "build": "tsc -outDir dist -watch"
+        "build": "tsc -outDir dist -watch",
+        "package": "esbuild tboot.ts --bundle --outfile=dist/crib --platform=node --minify --banner:js='#!/usr/bin/env node' && chmod +x dist/crib",
+        "install": "sudo cp dist/crib /usr/local/bin/crib"
     }
 }
