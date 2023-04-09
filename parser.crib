@@ -4,7 +4,7 @@ public enum StatementKind(ConstStatement, LetStatement, EnumStatement, ClassStat
     ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement, ForRangeStatement, ForRangeExclusiveStatement)
 
 public enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract,
-    LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate,
+    LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate,
     Invalid)
 
 public enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType)
@@ -138,18 +138,7 @@ class Parser(tokeniser: Tokeniser)
             if acceptToken(token: Token.tkAssign)
                 value := parseExpression()
             else
-                if type?.kind = TypeKind.arrayType
-                    value := Expression(kind: ExpressionKind.ArrayInit, left: nil, right: nil)
-                elseif type?.kind = TypeKind.intType
-                    value := Expression(kind: ExpressionKind.IntConstant, left: nil, right: nil)
-                    value.value := "0"
-                elseif type?.kind = TypeKind.boolType
-                    value := Expression(kind: ExpressionKind.BoolConstant, left: nil, right: nil)
-                    value.value := "false"
-                elseif type?.kind = TypeKind.mapType
-                else
-                    value := Expression(kind: ExpressionKind.NilConstant, left: nil, right: nil)
-                end
+                value := nil
             end
 
             if tk = Token.tkConst

@@ -10,6 +10,22 @@ class generateTS(block:Statement[]^)
         result.push(value: " // " + formatParsedType(type))
     end
 
+    function getInitValue(expr: Expression?, type: ParsedType?): string
+        if expr <> nil
+            return generateJSExpression(expr)
+        elseif type?.kind = TypeKind.intType
+            return "0"
+        elseif type?.kind = TypeKind.arrayType
+            return "[]"
+        elseif type?.kind = TypeKind.boolType
+            return "false"
+        elseif type?.kind = TypeKind.mapType
+            return "new " + generateTSType(type: type!) + "()"
+        else
+            return "null"
+        end
+    end
+
     function generateBlock(block: Statement[]^, forClass: bool, atRoot: bool)
         let exportClassifier := ""
 
@@ -18,42 +34,21 @@ class generateTS(block:Statement[]^)
         end
        
         for stmt of block
-            if stmt.kind = StatementKind.ConstStatement
-                dumpType(type: stmt.type)
-                if forClass and stmt.isPublic
-                    result.push(value: "_o." + stmt.identifier + " = " + generateJSExpression(expr: stmt.value!) + ";")
-                elseif stmt.type <> nil
-                    result.push(value: "const " + stmt.identifier + ": " + generateTSType(type: stmt.type) + " = " + generateJSExpression(expr: stmt.value!) + ";")
-                else
-                    result.push(value: "const " + stmt.identifier + " = " + generateJSExpression(expr: stmt.value!) + ";")
-                end
-            elseif stmt.kind = StatementKind.LetStatement
-                let initValue := ""
+            if stmt.kind = StatementKind.ConstStatement or stmt.kind = StatementKind.LetStatement
+                const initValue := getInitValue(expr: stmt.value, type: stmt.type)
+                let declaration := "let"
 
-                dumpType(type: stmt.type)
-
-                if stmt.value <> nil
-                    initValue :=  generateJSExpression(expr: stmt.value!)
-                elseif stmt.type?.kind = TypeKind.intType
-                    initValue := "0"
-                elseif stmt.type?.kind = TypeKind.arrayType
-                    initValue := "[]"
-                elseif stmt.type?.kind = TypeKind.boolType
-                    initValue := "false"
-                elseif stmt.type?.kind = TypeKind.nullableType
-                    initValue := "null"
-                elseif stmt.type?.kind = TypeKind.mapType
-                    initValue := "new " + generateTSType(type: stmt.type!) + "()"
+                if stmt.kind = StatementKind.ConstStatement
+                    declaration := "const"
                 end
 
+                dumpType(type: stmt.type)
                 if forClass and stmt.isPublic
                     result.push(value: "_o." + stmt.identifier + " = " + initValue + ";")
+                elseif stmt.type <> nil
+                    result.push(value: declaration + " " + stmt.identifier + ": " + generateTSType(type: stmt.type) + " = " + initValue + ";")
                 else
-                    if stmt.type <> nil
-                        result.push(value: "let " + stmt.identifier + ": " + generateTSType(type: stmt.type) + " = " + initValue + ";")
-                    else
-                        result.push(value: "let " + stmt.identifier + " = " + initValue + ";")
-                    end
+                    result.push(value: declaration + " " + stmt.identifier + " = " + initValue + ";")
                 end
             elseif stmt.kind = StatementKind.IfStatement
                 result.push(value: "if (" + generateJSExpression(expr: stmt.value!) + ") {")
@@ -223,8 +218,6 @@ function generateJSExpression(expr: Expression^):string
             return "[]"
         end
         return "__index_get(" + generateJSExpression(expr: expr.left!) + ", " + generateArguments(args: expr.indexes) + ")"
-    elseif expr.kind = ExpressionKind.ArrayInit
-        return "[]"
     else
         return "*expression*"
     end

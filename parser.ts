@@ -6,7 +6,7 @@ export enum StatementKind {
 ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement, ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement, ForRangeStatement, ForRangeExclusiveStatement
 };
 export enum ExpressionKind {
-IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate, Invalid
+IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate, Invalid
 };
 export enum TypeKind {
 intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType
@@ -220,18 +220,7 @@ type = parseType();
 if (acceptToken(Token.tkAssign)) {
 value = parseExpression();
 } else {
-if (type?.kind == TypeKind.arrayType) {
-value = Expression(ExpressionKind.ArrayInit, null, null);
-} else if (type?.kind == TypeKind.intType) {
-value = Expression(ExpressionKind.IntConstant, null, null);
-value.value = "0";
-} else if (type?.kind == TypeKind.boolType) {
-value = Expression(ExpressionKind.BoolConstant, null, null);
-value.value = "false";
-} else if (type?.kind == TypeKind.mapType) {
-} else {
-value = Expression(ExpressionKind.NilConstant, null, null);
-}
+value = null;
 }
 if (tk == Token.tkConst) {
 stmt = Statement(StatementKind.ConstStatement);

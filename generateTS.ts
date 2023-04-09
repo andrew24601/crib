@@ -11,6 +11,21 @@ _o.result.push('import { generateTSImport, importScope } from "./tboot"');
 function dumpType(type:class_ParsedType):void {
 _o.result.push(" // " + formatParsedType(type));
 }
+function getInitValue(expr:class_Expression | null,type:class_ParsedType | null):string {
+if (expr != null) {
+return generateJSExpression(expr);
+} else if (type?.kind == TypeKind.intType) {
+return "0";
+} else if (type?.kind == TypeKind.arrayType) {
+return "[]";
+} else if (type?.kind == TypeKind.boolType) {
+return "false";
+} else if (type?.kind == TypeKind.mapType) {
+return "new " + generateTSType(type!) + "()";
+} else {
+return "null";
+}
+}
 function generateBlock(block:class_Statement[],forClass:boolean,atRoot:boolean):void {
  // string
 let exportClassifier: string = "";
@@ -18,40 +33,21 @@ if (atRoot) {
 exportClassifier = "export ";
 }
 for (const stmt of block) {
-if (stmt.kind == StatementKind.ConstStatement) {
-dumpType(stmt.type);
-if (forClass && stmt.isPublic) {
-_o.result.push("_o." + stmt.identifier + " = " + generateJSExpression(stmt.value!) + ";");
-} else if (stmt.type != null) {
-_o.result.push("const " + stmt.identifier + ": " + generateTSType(stmt.type) + " = " + generateJSExpression(stmt.value!) + ";");
-} else {
-_o.result.push("const " + stmt.identifier + " = " + generateJSExpression(stmt.value!) + ";");
-}
-} else if (stmt.kind == StatementKind.LetStatement) {
+if (stmt.kind == StatementKind.ConstStatement || stmt.kind == StatementKind.LetStatement) {
  // unknown
-let initValue: any = "";
-dumpType(stmt.type);
-if (stmt.value != null) {
-initValue = generateJSExpression(stmt.value!);
-} else if (stmt.type?.kind == TypeKind.intType) {
-initValue = "0";
-} else if (stmt.type?.kind == TypeKind.arrayType) {
-initValue = "[]";
-} else if (stmt.type?.kind == TypeKind.boolType) {
-initValue = "false";
-} else if (stmt.type?.kind == TypeKind.nullableType) {
-initValue = "null";
-} else if (stmt.type?.kind == TypeKind.mapType) {
-initValue = "new " + generateTSType(stmt.type!) + "()";
+const initValue: any = getInitValue(stmt.value, stmt.type);
+ // unknown
+let declaration: any = "let";
+if (stmt.kind == StatementKind.ConstStatement) {
+declaration = "const";
 }
+dumpType(stmt.type);
 if (forClass && stmt.isPublic) {
 _o.result.push("_o." + stmt.identifier + " = " + initValue + ";");
+} else if (stmt.type != null) {
+_o.result.push(declaration + " " + stmt.identifier + ": " + generateTSType(stmt.type) + " = " + initValue + ";");
 } else {
-if (stmt.type != null) {
-_o.result.push("let " + stmt.identifier + ": " + generateTSType(stmt.type) + " = " + initValue + ";");
-} else {
-_o.result.push("let " + stmt.identifier + " = " + initValue + ";");
-}
+_o.result.push(declaration + " " + stmt.identifier + " = " + initValue + ";");
 }
 } else if (stmt.kind == StatementKind.IfStatement) {
 _o.result.push("if (" + generateJSExpression(stmt.value!) + ") {");
@@ -209,8 +205,6 @@ if (expr.indexes.length == 0) {
 return "[]";
 }
 return "__index_get(" + generateJSExpression(expr.left!) + ", " + generateArguments(expr.indexes) + ")";
-} else if (expr.kind == ExpressionKind.ArrayInit) {
-return "[]";
 } else {
 return "*expression*";
 }
