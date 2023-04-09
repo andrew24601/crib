@@ -62,6 +62,14 @@ _o.result.push("} while (!(" + generateJSExpression(stmt.value!) + "))");
 _o.result.push("for (const " + stmt.identifier + " of " + generateJSExpression(stmt.value!) + ") {");
 generateBlock(stmt.block, false, false);
 _o.result.push("}");
+} else if (stmt.kind == StatementKind.ForRangeStatement) {
+_o.result.push("for (let " + stmt.identifier + " = " + generateJSExpression(stmt.lhs!) + "; " + stmt.identifier + " <= " + generateJSExpression(stmt.value!) + "; " + stmt.identifier + "++) {");
+generateBlock(stmt.block, false, false);
+_o.result.push("}");
+} else if (stmt.kind == StatementKind.ForRangeExclusiveStatement) {
+_o.result.push("for (let " + stmt.identifier + " = " + generateJSExpression(stmt.lhs!) + "; " + stmt.identifier + " <= " + generateJSExpression(stmt.value!) + "; " + stmt.identifier + "++) {");
+generateBlock(stmt.block, false, false);
+_o.result.push("}");
 } else if (stmt.kind == StatementKind.AssignStatement) {
 if (stmt.lhs!.kind == ExpressionKind.Index) {
 _o.result.push("__index_set(" + generateJSExpression(stmt.lhs!.left!) + ", " + generateJSExpression(__index_get(stmt.lhs!.indexes, 0)) + ", " + generateJSExpression(stmt.value!) + ");");

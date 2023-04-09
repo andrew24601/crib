@@ -3,7 +3,7 @@ import { generateTSImport, importScope } from "./tboot"
 // import goes here
 import { Token, class_Tokeniser, Tokeniser} from "./tokeniser"
 export enum StatementKind {
-ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement, ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement
+ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement, ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement, ForRangeStatement, ForRangeExclusiveStatement
 };
 export enum ExpressionKind {
 IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate, Invalid
@@ -305,6 +305,15 @@ stmt = Statement(StatementKind.ForStatement);
 stmt.identifier = expectIdentifier();
 expectToken(Token.tkOf);
 stmt.value = parseExpression();
+if (acceptToken(Token.tkRangeInclusive)) {
+stmt.lhs = stmt.value;
+stmt.value = parseExpression();
+stmt.kind = StatementKind.ForRangeStatement;
+} else if (acceptToken(Token.tkRangeExclusive)) {
+stmt.lhs = stmt.value;
+stmt.value = parseExpression();
+stmt.kind = StatementKind.ForRangeExclusiveStatement;
+}
 stmt.block = parseBlock();
 expectToken(Token.tkEnd);
 return stmt;
