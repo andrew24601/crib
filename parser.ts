@@ -9,7 +9,7 @@ export enum ExpressionKind {
 IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate, Invalid
 };
 export enum TypeKind {
-intType, doubleType, boolType, stringType, objectType, arrayType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType
+intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType
 };
  // object<ParsedType>
 const sharedUnknownType: class_ParsedType = ParsedType(TypeKind.unknownType, null, null);
@@ -49,6 +49,8 @@ _o.stmt = stmt;
 _o.identifier = null;
  // array<object<ParsedType>>
 _o.parameters = [];
+ // nullable<object<ParsedType>>
+_o.mapKeyRef = null;
 return _o;
 }
 export interface class_ParsedType {
@@ -57,6 +59,7 @@ ref:class_ParsedType | null;
 stmt:class_Statement | null;
 identifier:string | null;
 parameters:class_ParsedType[];
+mapKeyRef:class_ParsedType | null;
 }
 export function DefnArgument(identifier:string,type:class_ParsedType,isPublic:boolean) {
 const _o = {} as class_DefnArgument;
@@ -169,8 +172,13 @@ expectToken(Token.tkGreaterThan);
 }
 while (true) {
 if (acceptToken(Token.tkLeftBracket)) {
-expectToken(Token.tkRightBracket);
+if (acceptToken(Token.tkRightBracket)) {
 type = ParsedType(TypeKind.arrayType, type, null);
+} else {
+type = ParsedType(TypeKind.mapType, type, null);
+type.mapKeyRef = parseType();
+expectToken(Token.tkRightBracket);
+}
 } else if (acceptToken(Token.tkCaret)) {
 type = ParsedType(TypeKind.pointerType, type, null);
 } else if (acceptToken(Token.tkQuestionMark)) {
@@ -220,6 +228,7 @@ value.value = "0";
 } else if (type?.kind == TypeKind.boolType) {
 value = Expression(ExpressionKind.BoolConstant, null, null);
 value.value = "false";
+} else if (type?.kind == TypeKind.mapType) {
 } else {
 value = Expression(ExpressionKind.NilConstant, null, null);
 }

@@ -181,5 +181,8 @@ function resolveType(type: ParsedType, scope: StringMap)
         resolveType(type: type.ref!, scope)
     elseif type.kind = TypeKind.arrayType
         resolveType(type: type.ref!, scope)
+    elseif type.kind = TypeKind.mapType
+        resolveType(type: type.ref!, scope)
+        resolveType(type: type.mapKeyRef!, scope)
     end
 end

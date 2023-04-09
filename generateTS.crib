@@ -28,14 +28,31 @@ class generateTS(block:Statement[]^)
                     result.push(value: "const " + stmt.identifier + " = " + generateJSExpression(expr: stmt.value!) + ";")
                 end
             elseif stmt.kind = StatementKind.LetStatement
+                let initValue := ""
+
                 dumpType(type: stmt.type)
+
+                if stmt.value <> nil
+                    initValue :=  generateJSExpression(expr: stmt.value!)
+                elseif stmt.type?.kind = TypeKind.intType
+                    initValue := "0"
+                elseif stmt.type?.kind = TypeKind.arrayType
+                    initValue := "[]"
+                elseif stmt.type?.kind = TypeKind.boolType
+                    initValue := "false"
+                elseif stmt.type?.kind = TypeKind.nullableType
+                    initValue := "null"
+                elseif stmt.type?.kind = TypeKind.mapType
+                    initValue := "new " + generateTSType(type: stmt.type!) + "()"
+                end
+
                 if forClass and stmt.isPublic
-                    result.push(value: "_o." + stmt.identifier + " = " + generateJSExpression(expr: stmt.value!) + ";")
+                    result.push(value: "_o." + stmt.identifier + " = " + initValue + ";")
                 else
                     if stmt.type <> nil
-                        result.push(value: "let " + stmt.identifier + ": " + generateTSType(type: stmt.type) + " = " + generateJSExpression(expr: stmt.value!) + ";")
+                        result.push(value: "let " + stmt.identifier + ": " + generateTSType(type: stmt.type) + " = " + initValue + ";")
                     else
-                        result.push(value: "let " + stmt.identifier + " = " + generateJSExpression(expr: stmt.value!) + ";")
+                        result.push(value: "let " + stmt.identifier + " = " + initValue + ";")
                     end
                 end
             elseif stmt.kind = StatementKind.IfStatement
@@ -237,6 +254,8 @@ function generateTSType(type: ParsedType?): string
             return type.identifier!
         end
         return "any"
+    elseif type.kind = TypeKind.mapType
+        return "Map<" + generateTSType(type: type.mapKeyRef) + "," + generateTSType(type: type.ref) + ">"
     elseif type.kind = TypeKind.functionType
         return "Function"
     elseif type.kind = TypeKind.voidType

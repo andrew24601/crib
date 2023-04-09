@@ -28,14 +28,29 @@ _o.result.push("const " + stmt.identifier + ": " + generateTSType(stmt.type) + "
 _o.result.push("const " + stmt.identifier + " = " + generateJSExpression(stmt.value!) + ";");
 }
 } else if (stmt.kind == StatementKind.LetStatement) {
+ // unknown
+let initValue: any = "";
 dumpType(stmt.type);
+if (stmt.value != null) {
+initValue = generateJSExpression(stmt.value!);
+} else if (stmt.type?.kind == TypeKind.intType) {
+initValue = "0";
+} else if (stmt.type?.kind == TypeKind.arrayType) {
+initValue = "[]";
+} else if (stmt.type?.kind == TypeKind.boolType) {
+initValue = "false";
+} else if (stmt.type?.kind == TypeKind.nullableType) {
+initValue = "null";
+} else if (stmt.type?.kind == TypeKind.mapType) {
+initValue = "new " + generateTSType(stmt.type!) + "()";
+}
 if (forClass && stmt.isPublic) {
-_o.result.push("_o." + stmt.identifier + " = " + generateJSExpression(stmt.value!) + ";");
+_o.result.push("_o." + stmt.identifier + " = " + initValue + ";");
 } else {
 if (stmt.type != null) {
-_o.result.push("let " + stmt.identifier + ": " + generateTSType(stmt.type) + " = " + generateJSExpression(stmt.value!) + ";");
+_o.result.push("let " + stmt.identifier + ": " + generateTSType(stmt.type) + " = " + initValue + ";");
 } else {
-_o.result.push("let " + stmt.identifier + " = " + generateJSExpression(stmt.value!) + ";");
+_o.result.push("let " + stmt.identifier + " = " + initValue + ";");
 }
 }
 } else if (stmt.kind == StatementKind.IfStatement) {
@@ -223,6 +238,8 @@ return "class_" + type.identifier!;
 return type.identifier!;
 }
 return "any";
+} else if (type.kind == TypeKind.mapType) {
+return "Map<" + generateTSType(type.mapKeyRef) + "," + generateTSType(type.ref) + ">";
 } else if (type.kind == TypeKind.functionType) {
 return "Function";
 } else if (type.kind == TypeKind.voidType) {

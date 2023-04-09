@@ -7,7 +7,7 @@ public enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConst
     LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, ArrayInit, BoolConstant, Not, Negate,
     Invalid)
 
-public enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType)
+public enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType)
 
 const sharedUnknownType := ParsedType(kind: TypeKind.unknownType, ref: nil, stmt: nil)
 
@@ -22,6 +22,7 @@ end
 public class ParsedType(public kind: TypeKind, public ref: ParsedType?, public stmt: Statement?)
     public let identifier: string?
     public let parameters: ParsedType[]
+    public let mapKeyRef: ParsedType?
 end
 
 public class DefnArgument(public identifier: string, public type: ParsedType, public isPublic: bool)
@@ -91,8 +92,13 @@ class Parser(tokeniser: Tokeniser)
         end
         while true
             if acceptToken(token: Token.tkLeftBracket)
-                expectToken(expected: Token.tkRightBracket)
-                type := ParsedType(kind: TypeKind.arrayType, ref: type, stmt: nil)
+                if acceptToken(token: Token.tkRightBracket)
+                    type := ParsedType(kind: TypeKind.arrayType, ref: type, stmt: nil)
+                else
+                    type := ParsedType(kind: TypeKind.mapType, ref: type, stmt: nil)
+                    type.mapKeyRef := parseType()
+                    expectToken(expected: Token.tkRightBracket)
+                end
             elseif acceptToken(token: Token.tkCaret)
                 type := ParsedType(kind: TypeKind.pointerType, ref: type, stmt: nil)
             elseif acceptToken(token: Token.tkQuestionMark)
@@ -140,6 +146,7 @@ class Parser(tokeniser: Tokeniser)
                 elseif type?.kind = TypeKind.boolType
                     value := Expression(kind: ExpressionKind.BoolConstant, left: nil, right: nil)
                     value.value := "false"
+                elseif type?.kind = TypeKind.mapType
                 else
                     value := Expression(kind: ExpressionKind.NilConstant, left: nil, right: nil)
                 end

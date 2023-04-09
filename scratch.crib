@@ -1,5 +1,6 @@
 import Token, Tokeniser from ./tokeniser
+import ParsedType from ./parser
 
 function parser(tokeniser: Tokeniser)
-    let tk := tokeniser.nextToken()
+    let tk: ParsedType[string]
 end

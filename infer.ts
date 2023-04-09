@@ -175,5 +175,8 @@ panic("Could not resolve type " + type.identifier);
 resolveType(type.ref!, scope);
 } else if (type.kind == TypeKind.arrayType) {
 resolveType(type.ref!, scope);
+} else if (type.kind == TypeKind.mapType) {
+resolveType(type.ref!, scope);
+resolveType(type.mapKeyRef!, scope);
 }
 }

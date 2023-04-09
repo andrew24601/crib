@@ -225,7 +225,9 @@ function descopeCode(args: DefnArgument[]^, block: Statement[]^, outerScope: Str
             elseif stmt.kind = StatementKind.ReturnStatement
                 stmt.value := descopeExpression(expr: stmt.value)
             elseif stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
-                stmt.value := descopeExpression(expr: stmt.value)
+                if stmt.value <> nil
+                    stmt.value := descopeExpression(expr: stmt.value)
+                end
             elseif stmt.kind = StatementKind.AssignStatement
                 stmt.value := descopeExpression(expr: stmt.value)
                 stmt.lhs := descopeExpression(expr: stmt.lhs!)

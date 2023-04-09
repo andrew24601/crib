@@ -223,7 +223,9 @@ stmt.value = descopeExpression(stmt.value);
 } else if (stmt.kind == StatementKind.ReturnStatement) {
 stmt.value = descopeExpression(stmt.value);
 } else if (stmt.kind == StatementKind.LetStatement || stmt.kind == StatementKind.ConstStatement) {
+if (stmt.value != null) {
 stmt.value = descopeExpression(stmt.value);
+}
 } else if (stmt.kind == StatementKind.AssignStatement) {
 stmt.value = descopeExpression(stmt.value);
 stmt.lhs = descopeExpression(stmt.lhs!);
