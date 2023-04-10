@@ -1,4 +1,4 @@
-import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"
+import { __index_get, __index_set, __slice, panic } from "./runtime"
 import { generateTSImport, importScope } from "./tboot"
 // import goes here
 import { class_Statement, Statement, StatementKind, class_ParsedType, ParsedType, ExpressionKind, TypeKind, class_Expression, Expression, class_DefnArgument, DefnArgument} from "./parser"
@@ -6,7 +6,7 @@ export function generateTS(block:class_Statement[]) {
 const _o = {} as class_generateTS;
  // array<string>
 _o.result = [];
-_o.result.push('import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"');
+_o.result.push('import { __index_get, __index_set, __slice, panic } from "./runtime"');
 _o.result.push('import { generateTSImport, importScope } from "./tboot"');
 function dumpType(type:class_ParsedType):void {
 _o.result.push(" // " + formatParsedType(type));

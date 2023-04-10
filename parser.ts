@@ -1,4 +1,4 @@
-import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"
+import { __index_get, __index_set, __slice, panic } from "./runtime"
 import { generateTSImport, importScope } from "./tboot"
 // import goes here
 import { Token, class_Tokeniser, Tokeniser} from "./tokeniser"

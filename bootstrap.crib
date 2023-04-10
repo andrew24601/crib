@@ -1,191 +1,18 @@
 import Token, Tokeniser from ./tokeniser
 import Statement, StatementKind, ParsedType, ExpressionKind, TypeKind, Expression, DefnArgument from ./parser
 
-function InferTypes(block:Statement[]^, parent: StringMap)
-    const scope := StringMap(init: parent)
+function descopeCode(args: DefnArgument[]^, block: Statement[]^, outerScope: string[string]?, forClass: bool)
+    const scopeSet:string[string]
 
-    for stmt of block
-        if stmt.kind = StatementKind.ClassStatement 
-            scope.set(key: stmt.identifier!, value: ParsedType(kind: TypeKind.classType, ref: nil, stmt))
-        elseif stmt.kind = StatementKind.EnumStatement
-            scope.set(key: stmt.identifier!, value: ParsedType(kind: TypeKind.enumDefinitionType, ref: nil, stmt))
-        elseif stmt.kind = StatementKind.FunctionStatement
-            scope.set(key: stmt.identifier!, value: ParsedType(kind: TypeKind.functionType, ref: nil, stmt))
+    if outerScope <> nil
+        for key of outerScope.keys()
+            scopeSet.set(key: key, value: outerScope.get(key: key)!)
         end
     end
-
-    for stmt of block
-        if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
-            const blockScope := StringMap(init: scope)
-            for arg of stmt.defnArguments
-                arg.type := resolve(t: arg.type)
-            end
-        end
-    end
-
-    for stmt of block
-        if stmt.kind = StatementKind.LetStatement
-            if stmt.type =  nil
-                stmt.type := infer(expr: stmt.value!)
-            end
-            if stmt.type <> nil
-                stmt.type := resolve(t: stmt.type)
-            end
-        elseif stmt.kind = StatementKind.ConstStatement
-            if stmt.type =  nil
-                stmt.type := infer(expr: stmt.value!)
-            end
-            if stmt.type <> nil
-                stmt.type := resolve(t: stmt.type)
-            end
-        elseif stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
-            const blockScope := StringMap(init: scope)
-            for arg of stmt.defnArguments
-                arg.type := resolve(t: arg.type)
-                blockScope.set(key: arg.identifier, value: arg.type)
-            end
-
-            InferTypes(block: stmt.block, parent: blockScope)
-        end
-    end
-
-    function infer(expr: Expression^): ParsedType^
-        expr.type := ParsedType(kind: TypeKind.invalidType, ref: nil, stmt: nil)
-        if expr.kind = ExpressionKind.IntConstant
-            expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
-        elseif expr.kind = ExpressionKind.StringConstant
-            expr.type := ParsedType(kind: TypeKind.stringType, ref: nil, stmt: nil)
-        elseif expr.kind = ExpressionKind.BoolConstant
-            expr.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
-        elseif expr.kind = ExpressionKind.DoubleConstant
-            expr.type := ParsedType(kind: TypeKind.doubleType, ref: nil, stmt: nil)
-        elseif expr.kind = ExpressionKind.LessThan or expr.kind = ExpressionKind.LessThanEquals or expr.kind = ExpressionKind.GreaterThan or expr.kind = ExpressionKind.GreaterThanEquals or expr.kind = ExpressionKind.Equals or expr.kind = ExpressionKind.NotEquals
-            infer(expr: expr.left!)
-            infer(expr: expr.right!)
-            expr.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
-        elseif expr.kind = ExpressionKind.And or expr.kind = ExpressionKind.Or
-            infer(expr: expr.left!)
-            infer(expr: expr.right!)
-            expr.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
-        elseif expr.kind = ExpressionKind.Add
-            infer(expr: expr.left!)
-            infer(expr: expr.right!)
-            if expr.left!.type.kind = TypeKind.stringType or expr.right!.type.kind = TypeKind.stringType
-                expr.type := ParsedType(kind: TypeKind.stringType, ref: nil, stmt: nil)
-            elseif expr.left!.type.kind = TypeKind.doubleType or expr.right!.type.kind = TypeKind.doubleType
-                expr.type := ParsedType(kind: TypeKind.doubleType, ref: nil, stmt: nil)
-            else
-                expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
-            end
-        elseif expr.kind = ExpressionKind.Subtract or expr.kind = ExpressionKind.Multiply or expr.kind = ExpressionKind.Divide or expr.kind = ExpressionKind.Modulo
-            infer(expr: expr.left!)
-            infer(expr: expr.right!)
-            if expr.left!.type.kind = TypeKind.doubleType or expr.right!.type.kind = TypeKind.doubleType
-                expr.type := ParsedType(kind: TypeKind.doubleType, ref: nil, stmt: nil)
-            else
-                expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
-            end
-        elseif expr.kind = ExpressionKind.Not
-            infer(expr: expr.left!)
-            expr.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
-        elseif expr.kind = ExpressionKind.Identifier
-            if scope.has(key: expr.value!)
-                expr.type := scope.get(identifier: expr.value!)
-            end
-        elseif expr.kind = ExpressionKind.Dot or expr.kind = ExpressionKind.OptDot
-            infer(expr: expr.left!)
-            if expr.left!.type.kind = TypeKind.enumDefinitionType
-                expr.type := ParsedType(kind: TypeKind.enumType, ref: nil, stmt: nil)
-            elseif expr.left!.type.kind = TypeKind.objectType
-                expr.type := getFieldType(classDefinition: expr.left!.type.ref!.stmt!, identifier: expr.value!)
-            elseif expr.left!.type.kind = TypeKind.stringType
-                if expr.value = "length"
-                    expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
-                else
-                    panic(message: "Invalid srting field")
-                end
-            else
-                panic(message: "Invalid type for dot expression")
-            end
-        elseif expr.kind = ExpressionKind.Index
-            infer(expr: expr.left!)
-            for index of expr.indexes
-                infer(expr: index)
-            end
-            if expr.left!.type.kind = TypeKind.arrayType
-                expr.type := expr.left!.type.ref!
-            end
-        elseif expr.kind = ExpressionKind.Bang
-            infer(expr: expr.left!)
-            expr.type := expr.left!.type
-        elseif expr.kind = ExpressionKind.Slice
-            infer(expr: expr.left!)
-            for index of expr.indexes
-                infer(expr: index)
-            end
-            expr.type := expr.left!.type
-        elseif expr.kind = ExpressionKind.Invoke
-            infer(expr: expr.left!)
-            for arg of expr.indexes
-                infer(expr: arg)
-            end
-            if expr.left!.type.kind = TypeKind.functionType
-                expr.type := expr.left!.type.stmt!.type
-            elseif expr.left!.type.kind = TypeKind.classType
-                expr.type := ParsedType(kind: TypeKind.objectType, ref: expr.left!.type, stmt: nil)
-            else
-                panic(message: "Cannot invoke non-function")
-            end
-        end
-        return expr.type
-    end
-
-    function getFieldType(classDefinition: Statement^, identifier: string): ParsedType^
-        for arg of classDefinition.defnArguments
-            if arg.identifier = identifier
-                return arg.type
-            end
-        end
-        for stmt of classDefinition.block
-            if stmt.kind = StatementKind.ConstStatement or stmt.kind = StatementKind.LetStatement
-                if stmt.identifier = identifier
-                    return stmt.type
-                end
-            elseif stmt.kind = StatementKind.FunctionStatement
-                if stmt.identifier = identifier
-                    return ParsedType(kind: TypeKind.functionType, ref: nil, stmt)
-                end
-            end
-        end
-        panic(message: "Field " + identifier + " not found in class " + classDefinition.identifier)
-        return ParsedType(kind: TypeKind.invalidType, ref: nil, stmt: nil)
-    end
-
-    function resolve(t: ParsedType^): ParsedType
-        if t.kind = TypeKind.objectType and t.ref = nil
-            if scope.has(key: t.identifier!)
-                t := scope.get(identifier: t.identifier!)
-            else
-                panic(message: "Type " + t.identifier! + " not found")
-            end
-            if t.kind = TypeKind.classType
-                t := ParsedType(kind: TypeKind.objectType, ref: t, stmt: nil)
-            elseif t.kind = TypeKind.enumDefinitionType
-                t := ParsedType(kind: TypeKind.enumType, ref: t, stmt: nil)
-            else
-                panic(message: "Type " + t.identifier! + " is not a class or enum")
-            end
-        end
-        return t
-    end
-end
-
-function descopeCode(args: DefnArgument[]^, block: Statement[]^, outerScope: StringMap?, forClass: bool)
-    let scopeSet := StringMap(init: outerScope)
 
     for arg of args
         if arg.isPublic and forClass
-            scopeSet.add(key: arg.identifier, value: "_o." + arg.identifier)
+            scopeSet.set(key: arg.identifier, value: "_o." + arg.identifier)
         else
             scopeSet.delete(key: arg.identifier)
         end
@@ -193,7 +20,7 @@ function descopeCode(args: DefnArgument[]^, block: Statement[]^, outerScope: Str
     for stmt of block
         if stmt.kind = StatementKind.ConstStatement or stmt.kind = StatementKind.LetStatement
             if stmt.isPublic and forClass
-                scopeSet.add(key: stmt.identifier!, value: "_o." + stmt.identifier)
+                scopeSet.set(key: stmt.identifier!, value: "_o." + stmt.identifier)
             else
                 scopeSet.delete(key: stmt.identifier!)
             end
@@ -238,7 +65,7 @@ function descopeCode(args: DefnArgument[]^, block: Statement[]^, outerScope: Str
     function descopeExpression(expr: Expression):Expression
         if expr.kind = ExpressionKind.Identifier
             if scopeSet.has(key: expr.value!)
-                expr.value := scopeSet.get(key: expr.value!)
+                expr.value := scopeSet.get(key: expr.value!)!
             end
         elseif expr.kind = ExpressionKind.Equals or expr.kind = ExpressionKind.NotEquals or expr.kind = ExpressionKind.LessThan or expr.kind = ExpressionKind.LessThanEquals
                 or expr.kind = ExpressionKind.GreaterThan or expr.kind = ExpressionKind.GreaterThanEquals

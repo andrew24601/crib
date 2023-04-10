@@ -1,7 +1,18 @@
 import Statement, StatementKind, ParsedType, TypeKind, Expression, ExpressionKind from ./parser
 
-function getBlockDefinitions(block: Statement[], outerScope: StringMap?): StringMap
-    const scope := StringMap(init: outerScope)
+function cloneScope(scope: ParsedType[string]?): ParsedType[string]
+    const newScope: ParsedType[string]
+    if scope = nil
+        return newScope
+    end
+    for key of scope.keys()
+        newScope.set(key, value: scope.get(key)!)
+    end
+    return newScope
+end 
+
+function getBlockDefinitions(block: Statement[], outerScope: ParsedType[string]?): ParsedType[string]
+    const scope := cloneScope(scope: outerScope)
 
     for stmt of block
         if stmt.kind = StatementKind.FunctionStatement
@@ -16,7 +27,7 @@ function getBlockDefinitions(block: Statement[], outerScope: StringMap?): String
     return scope
 end
 
-function inferPublicInterface(module: Statement[], outerScope: StringMap): StringMap
+function inferPublicInterface(module: Statement[], outerScope: ParsedType[string]): ParsedType[string]
     const scope := getBlockDefinitions(block: module, outerScope)
 
     for stmt of module
@@ -34,12 +45,12 @@ function inferPublicInterface(module: Statement[], outerScope: StringMap): Strin
     return scope
 end
 
-public function applyScopeToBlock(block: Statement[], scope: StringMap)
+public function applyScopeToBlock(block: Statement[], scope: ParsedType[string])
     for stmt of block
         if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
             inferClassFunctionInterface(scope, stmt)
 
-            const innerScope := StringMap(init: scope)
+            const innerScope := cloneScope(scope)
             for arg of stmt.defnArguments
                 innerScope.set(key: arg.identifier, value: arg.type)
             end
@@ -61,7 +72,7 @@ function flattenObjectType(type: ParsedType): ParsedType
     return type
 end
 
-function inferPublicExpressionType(expr: Expression, scope: StringMap): ParsedType
+function inferPublicExpressionType(expr: Expression, scope: ParsedType[string]): ParsedType
     if expr.kind = ExpressionKind.IntConstant
         return ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
     elseif expr.kind = ExpressionKind.StringConstant
@@ -72,7 +83,7 @@ function inferPublicExpressionType(expr: Expression, scope: StringMap): ParsedTy
     return ParsedType(kind: TypeKind.unknownType, ref: nil, stmt: nil)
 end
 
-function inferExpressionType(expr: Expression, scope: StringMap): ParsedType
+function inferExpressionType(expr: Expression, scope: ParsedType[string]): ParsedType
     let returnType: ParsedType?
     if expr.kind = ExpressionKind.Identifier
         if scope.has(key: expr.value!)
@@ -147,7 +158,7 @@ function getFieldType(classDefinition: Statement, identifier: string): ParsedTyp
     return ParsedType(kind: TypeKind.invalidType, ref: nil, stmt: nil)
 end
 
-public function inferBlock(block: Statement[], outerScope: StringMap): StringMap
+public function inferBlock(block: Statement[], outerScope: ParsedType[string]): ParsedType[string]
     const scope := getBlockDefinitions(block, outerScope)
 
     applyScopeToBlock(block, scope)
@@ -155,7 +166,7 @@ public function inferBlock(block: Statement[], outerScope: StringMap): StringMap
     return scope
 end
 
-function inferClassFunctionInterface(scope: StringMap, stmt: Statement)
+function inferClassFunctionInterface(scope: ParsedType[string], stmt: Statement)
     resolveType(type: stmt.type, scope)
     for arg of stmt.defnArguments
         resolveType(type: arg.type, scope)
@@ -165,7 +176,7 @@ function inferClassFunctionInterface(scope: StringMap, stmt: Statement)
     end
 end
 
-function resolveType(type: ParsedType, scope: StringMap)
+function resolveType(type: ParsedType, scope: ParsedType[string])
     if type.kind = TypeKind.objectType
         if scope.has(key: type.identifier!)
             const resolvedType := scope.get(key: type.identifier!)

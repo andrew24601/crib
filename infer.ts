@@ -2,9 +2,20 @@ import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } 
 import { generateTSImport, importScope } from "./tboot"
 // import goes here
 import { class_Statement, Statement, StatementKind, class_ParsedType, ParsedType, TypeKind, class_Expression, Expression, ExpressionKind} from "./parser"
-export function getBlockDefinitions(block:class_Statement[],outerScope:class_StringMap | null):class_StringMap {
- // object<StringMap>
-const scope: class_StringMap = StringMap(outerScope);
+export function cloneScope(scope:Map<string,class_ParsedType> | null):Map<string,class_ParsedType> {
+ // unknown
+const newScope: Map<string,class_ParsedType> = new Map<string,class_ParsedType>();
+if (scope == null) {
+return newScope;
+}
+for (const key of scope.keys()) {
+newScope.set(key, scope.get(key)!);
+}
+return newScope;
+}
+export function getBlockDefinitions(block:class_Statement[],outerScope:Map<string,class_ParsedType> | null):Map<string,class_ParsedType> {
+ // unknown
+const scope: Map<string,class_ParsedType> = cloneScope(outerScope);
 for (const stmt of block) {
 if (stmt.kind == StatementKind.FunctionStatement) {
 scope.set(stmt.identifier!, ParsedType(TypeKind.functionType, null, stmt));
@@ -16,9 +27,9 @@ scope.set(stmt.identifier!, ParsedType(TypeKind.enumDefinitionType, null, stmt))
 }
 return scope;
 }
-export function inferPublicInterface(module:class_Statement[],outerScope:class_StringMap):class_StringMap {
- // object<StringMap>
-const scope: class_StringMap = getBlockDefinitions(module, outerScope);
+export function inferPublicInterface(module:class_Statement[],outerScope:Map<string,class_ParsedType>):Map<string,class_ParsedType> {
+ // unknown
+const scope: Map<string,class_ParsedType> = getBlockDefinitions(module, outerScope);
 for (const stmt of module) {
 if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.FunctionStatement) {
 inferClassFunctionInterface(scope, stmt);
@@ -32,12 +43,12 @@ resolveType(stmt.type, scope);
 }
 return scope;
 }
-export function applyScopeToBlock(block:class_Statement[],scope:class_StringMap):void {
+export function applyScopeToBlock(block:class_Statement[],scope:Map<string,class_ParsedType>):void {
 for (const stmt of block) {
 if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.FunctionStatement) {
 inferClassFunctionInterface(scope, stmt);
  // unknown
-const innerScope: any = StringMap(scope);
+const innerScope: any = cloneScope(scope);
 for (const arg of stmt.defnArguments) {
 innerScope.set(arg.identifier, arg.type);
 }
@@ -57,7 +68,7 @@ return flattenObjectType(type.ref!);
 }
 return type;
 }
-export function inferPublicExpressionType(expr:class_Expression,scope:class_StringMap):class_ParsedType {
+export function inferPublicExpressionType(expr:class_Expression,scope:Map<string,class_ParsedType>):class_ParsedType {
 if (expr.kind == ExpressionKind.IntConstant) {
 return ParsedType(TypeKind.intType, null, null);
 } else if (expr.kind == ExpressionKind.StringConstant) {
@@ -67,7 +78,7 @@ return ParsedType(TypeKind.boolType, null, null);
 }
 return ParsedType(TypeKind.unknownType, null, null);
 }
-export function inferExpressionType(expr:class_Expression,scope:class_StringMap):class_ParsedType {
+export function inferExpressionType(expr:class_Expression,scope:Map<string,class_ParsedType>):class_ParsedType {
  // nullable<object<ParsedType>>
 let returnType: class_ParsedType | null = null;
 if (expr.kind == ExpressionKind.Identifier) {
@@ -143,13 +154,13 @@ return ParsedType(TypeKind.functionType, null, stmt);
 panic("Field " + identifier + " not found in class " + classDefinition.identifier);
 return ParsedType(TypeKind.invalidType, null, null);
 }
-export function inferBlock(block:class_Statement[],outerScope:class_StringMap):class_StringMap {
- // object<StringMap>
-const scope: class_StringMap = getBlockDefinitions(block, outerScope);
+export function inferBlock(block:class_Statement[],outerScope:Map<string,class_ParsedType>):Map<string,class_ParsedType> {
+ // unknown
+const scope: Map<string,class_ParsedType> = getBlockDefinitions(block, outerScope);
 applyScopeToBlock(block, scope);
 return scope;
 }
-export function inferClassFunctionInterface(scope:class_StringMap,stmt:class_Statement):void {
+export function inferClassFunctionInterface(scope:Map<string,class_ParsedType>,stmt:class_Statement):void {
 resolveType(stmt.type, scope);
 for (const arg of stmt.defnArguments) {
 resolveType(arg.type, scope);
@@ -158,7 +169,7 @@ if (stmt.kind == StatementKind.ClassStatement) {
 inferPublicInterface(stmt.block, scope);
 }
 }
-export function resolveType(type:class_ParsedType,scope:class_StringMap):void {
+export function resolveType(type:class_ParsedType,scope:Map<string,class_ParsedType>):void {
 if (type.kind == TypeKind.objectType) {
 if (scope.has(type.identifier!)) {
  // unknown

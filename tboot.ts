@@ -1,8 +1,7 @@
 import { descopeCode } from "./bootstrap"
 import { Tokeniser } from "./tokeniser"
-import { Parser, class_Statement, StatementKind, Statement, ParsedType, TypeKind } from "./parser"
+import { Parser, class_Statement, StatementKind, Statement, ParsedType, TypeKind, class_ParsedType } from "./parser"
 import { readFileSync, writeFileSync } from "fs";
-import { StringMap, class_StringMap } from "./runtime"
 import { generateTS } from "./generateTS"
 import { getBlockDefinitions, inferPublicInterface, inferBlock } from "./infer"
 import { join } from "path"
@@ -10,8 +9,8 @@ import { join } from "path"
 interface CribModule {
     path: string;
     block: class_Statement[];
-    definitions: class_StringMap;
-    scope?: class_StringMap;
+    definitions: Map<string, class_ParsedType>;
+    scope?: Map<string, class_ParsedType>;
 }
 
 function parseModule(path: string): class_Statement[] {
@@ -22,7 +21,7 @@ function parseModule(path: string): class_Statement[] {
     return block;
 }
 
-export function importScope(scope: class_StringMap, stmt: class_Statement) {
+export function importScope(scope: Map<string, class_ParsedType>, stmt: class_Statement) {
     const module = parseModule("./" + stmt.identifier + ".crib")
     const definitions = getBlockDefinitions(module, null)
 
@@ -89,10 +88,7 @@ function load(path: string) {
     while (loading.length > 0) {
         const module = loading.pop()!;
 
-        const moduleScope = StringMap(null);
-        const stringMapType = ParsedType(TypeKind.classType, null, Statement(StatementKind.ClassStatement))
-        stringMapType.stmt!.identifier = "StringMap";
-        moduleScope.set("StringMap", stringMapType);
+        const moduleScope = new Map<string, class_ParsedType>();
         
         for (const stmt of module.block) {
             if (stmt.kind === StatementKind.ImportStatement) {
@@ -123,7 +119,7 @@ load(path)
 
 
 for (const m of modules.values()) {
-    inferBlock(m.block, m.scope!).v.keys();
+    inferBlock(m.block, m.scope!);
 
 //const validator = ResolveTypes(block, initialScope);
 

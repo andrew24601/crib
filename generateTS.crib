@@ -3,7 +3,7 @@ import Statement, StatementKind, ParsedType, ExpressionKind, TypeKind, Expressio
 class generateTS(block:Statement[]^)
     public const result:string[]
 
-    result.push(value: 'import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"')
+    result.push(value: 'import { __index_get, __index_set, __slice, panic } from "./runtime"')
     result.push(value: 'import { generateTSImport, importScope } from "./tboot"')
 
     function dumpType(type: ParsedType^)
