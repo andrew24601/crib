@@ -1,4 +1,4 @@
-import { __index_get, __index_set, __slice, StringMap, panic, class_StringMap } from "./runtime"
+import { __index_get, __index_set, __slice, panic } from "./runtime"
 import { generateTSImport, importScope } from "./tboot"
 // import goes here
 import { class_Statement, Statement, StatementKind, class_ParsedType, ParsedType, TypeKind, class_Expression, Expression, ExpressionKind} from "./parser"
@@ -34,7 +34,7 @@ for (const stmt of module) {
 if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.FunctionStatement) {
 inferClassFunctionInterface(scope, stmt);
 } else if (stmt.kind == StatementKind.LetStatement || stmt.kind == StatementKind.ConstStatement) {
-if (stmt.type == null) {
+if (stmt.type.kind == TypeKind.unknownType) {
 stmt.type = inferPublicExpressionType(stmt.value!, scope);
 } else if (stmt.type != null) {
 resolveType(stmt.type, scope);
@@ -43,22 +43,73 @@ resolveType(stmt.type, scope);
 }
 return scope;
 }
+export function effectiveType(type:class_ParsedType):class_ParsedType {
+if (type.kind == TypeKind.pointerType) {
+return effectiveType(type.ref!);
+}
+return type;
+}
 export function applyScopeToBlock(block:class_Statement[],scope:Map<string,class_ParsedType>):void {
 for (const stmt of block) {
 if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.FunctionStatement) {
 inferClassFunctionInterface(scope, stmt);
+}
+}
+for (const stmt of block) {
+if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.FunctionStatement) {
  // unknown
-const innerScope: any = cloneScope(scope);
+const innerScope: Map<string,class_ParsedType> = cloneScope(scope);
 for (const arg of stmt.defnArguments) {
 innerScope.set(arg.identifier, arg.type);
 }
 inferBlock(stmt.block, innerScope);
 } else if (stmt.kind == StatementKind.LetStatement || stmt.kind == StatementKind.ConstStatement) {
+if (stmt.value != null) {
+inferExpressionType(stmt.value!, scope);
+}
 if (stmt.type.kind == TypeKind.unknownType) {
 stmt.type = inferExpressionType(stmt.value!, scope);
+if (stmt.type.kind == TypeKind.unknownType) {
+panic("Could not infer type of " + stmt.identifier!);
+}
 } else {
 resolveType(stmt.type, scope);
 }
+scope.set(stmt.identifier!, stmt.type);
+} else if (stmt.kind == StatementKind.ReturnStatement) {
+if (stmt.value != null) {
+stmt.value.type = inferExpressionType(stmt.value!, scope);
+}
+} else if (stmt.kind == StatementKind.WhileStatement) {
+inferExpressionType(stmt.value!, scope);
+inferBlock(stmt.block, scope);
+} else if (stmt.kind == StatementKind.RepeatStatement) {
+inferBlock(stmt.block, scope);
+inferExpressionType(stmt.value!, scope);
+} else if (stmt.kind == StatementKind.ForStatement) {
+inferExpressionType(stmt.value!, scope);
+ // object<ParsedType>
+const sequenceType: class_ParsedType = effectiveType(stmt.value!.type);
+if (sequenceType.kind != TypeKind.arrayType) {
+panic("For loop must iterate over an array");
+}
+ // unknown
+const innerScope: Map<string,class_ParsedType> = cloneScope(scope);
+innerScope.set(stmt.identifier!, sequenceType.ref!);
+inferBlock(stmt.block, innerScope);
+} else if (stmt.kind == StatementKind.IfStatement) {
+inferExpressionType(stmt.value!, scope);
+inferBlock(stmt.block, scope);
+for (const ei of stmt.elseIf) {
+inferExpressionType(ei.value, scope);
+inferBlock(ei.block, scope);
+}
+inferBlock(stmt.elseBlock!, scope);
+} else if (stmt.kind == StatementKind.ExpressionStatement) {
+inferExpressionType(stmt.value!, scope);
+} else if (stmt.kind == StatementKind.AssignStatement) {
+inferExpressionType(stmt.lhs!, scope);
+inferExpressionType(stmt.value!, scope);
 }
 }
 }
@@ -83,56 +134,139 @@ export function inferExpressionType(expr:class_Expression,scope:Map<string,class
 let returnType: class_ParsedType | null = null;
 if (expr.kind == ExpressionKind.Identifier) {
 if (scope.has(expr.value!)) {
-return scope.get(expr.value!)!;
+expr.type = scope.get(expr.value!)!;
 } else {
 panic("Could not resolve identifier " + expr.value);
 }
 } else if (expr.kind == ExpressionKind.IntConstant) {
-return ParsedType(TypeKind.intType, null, null);
+expr.type = ParsedType(TypeKind.intType, null, null);
 } else if (expr.kind == ExpressionKind.StringConstant) {
-return ParsedType(TypeKind.stringType, null, null);
+expr.type = ParsedType(TypeKind.stringType, null, null);
 } else if (expr.kind == ExpressionKind.BoolConstant) {
-return ParsedType(TypeKind.boolType, null, null);
-} else if (expr.kind == ExpressionKind.Dot) {
- // unknown
-const type: any = flattenObjectType(inferExpressionType(expr.left!, scope));
+expr.type = ParsedType(TypeKind.boolType, null, null);
+} else if (expr.kind == ExpressionKind.Not) {
+inferExpressionType(expr.left!, scope);
+expr.type = ParsedType(TypeKind.boolType, null, null);
+} else if (expr.kind == ExpressionKind.And || expr.kind == ExpressionKind.Or || expr.kind == ExpressionKind.Equals || expr.kind == ExpressionKind.NotEquals || expr.kind == ExpressionKind.LessThan || expr.kind == ExpressionKind.LessThanEquals || expr.kind == ExpressionKind.GreaterThan || expr.kind == ExpressionKind.GreaterThanEquals) {
+inferExpressionType(expr.left!, scope);
+inferExpressionType(expr.right!, scope);
+expr.type = ParsedType(TypeKind.boolType, null, null);
+} else if (expr.kind == ExpressionKind.Add) {
+inferExpressionType(expr.left!, scope);
+inferExpressionType(expr.right!, scope);
+if (expr.left!.type.kind == TypeKind.intType && expr.right!.type.kind == TypeKind.intType) {
+expr.type = ParsedType(TypeKind.intType, null, null);
+} else {
+expr.type = ParsedType(TypeKind.stringType, null, null);
+}
+} else if (expr.kind == ExpressionKind.Subtract || expr.kind == ExpressionKind.Multiply || expr.kind == ExpressionKind.Divide || expr.kind == ExpressionKind.Modulo) {
+inferExpressionType(expr.left!, scope);
+inferExpressionType(expr.right!, scope);
+expr.type = ParsedType(TypeKind.intType, null, null);
+} else if (expr.kind == ExpressionKind.Dot || expr.kind == ExpressionKind.OptDot) {
+ // object<ParsedType>
+const type: class_ParsedType = flattenObjectType(inferExpressionType(expr.left!, scope));
 if (type.kind == TypeKind.objectType && type.stmt?.kind == StatementKind.ClassStatement) {
-return getFieldType(type.stmt, expr.value!);
+expr.type = getFieldType(type.stmt, expr.value!);
 } else if (type.kind == TypeKind.enumDefinitionType) {
 returnType = ParsedType(TypeKind.enumType, null, type.stmt);
 returnType.identifier = type.stmt!.identifier;
-return returnType;
+expr.type = returnType;
 } else if (type.kind == TypeKind.stringType && expr.value == "length") {
-return ParsedType(TypeKind.intType, null, null);
+expr.type = ParsedType(TypeKind.intType, null, null);
 } else if (type.kind == TypeKind.arrayType && expr.value == "length") {
-return ParsedType(TypeKind.intType, null, null);
+expr.type = ParsedType(TypeKind.intType, null, null);
+} else if (type.kind == TypeKind.arrayType && expr.value == "push") {
+ // object<Statement>
+const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
+fakeStmt.type = ParsedType(TypeKind.voidType, null, null);
+expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
+} else if (type.kind == TypeKind.mapType && expr.value == "has") {
+ // object<Statement>
+const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
+fakeStmt.type = ParsedType(TypeKind.boolType, null, null);
+expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
+} else if (type.kind == TypeKind.mapType && expr.value == "delete") {
+ // object<Statement>
+const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
+fakeStmt.type = ParsedType(TypeKind.voidType, null, null);
+expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
+} else if (type.kind == TypeKind.mapType && expr.value == "get") {
+ // object<Statement>
+const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
+fakeStmt.type = type.ref!;
+expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
+} else if (type.kind == TypeKind.mapType && expr.value == "set") {
+ // object<Statement>
+const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
+fakeStmt.type = ParsedType(TypeKind.voidType, null, null);
+expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
+} else if (type.kind == TypeKind.mapType && expr.value == "keys") {
+ // object<Statement>
+const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
+fakeStmt.type = ParsedType(TypeKind.arrayType, type.mapKeyRef!, null);
+expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
 } else {
 panic("Not an object type");
 }
+} else if (expr.kind == ExpressionKind.Bang) {
+inferExpressionType(expr.left!, scope);
+if (expr.left!.type.kind == TypeKind.nullableType) {
+expr.type = expr.left!.type.ref!;
+} else {
+expr.type = expr.left!.type;
+}
 } else if (expr.kind == ExpressionKind.Invoke) {
- // unknown
-const type: any = inferExpressionType(expr.left!, scope);
+ // object<ParsedType>
+const type: class_ParsedType = inferExpressionType(expr.left!, scope);
 if (type.kind == TypeKind.functionType) {
-return type.stmt.type;
+expr.type = type.stmt!.type!;
+if (expr.type.kind == TypeKind.unknownType) {
+panic("Could not infer return type of function");
+}
 } else if (type.kind == TypeKind.classType) {
 returnType = ParsedType(TypeKind.objectType, null, type.stmt);
-returnType.identifier = type.stmt.identifier;
-return returnType;
+returnType.identifier = type.stmt!.identifier;
+expr.type = returnType;
 } else {
 panic("Not a function or class type");
 }
-} else if (expr.kind == ExpressionKind.Index) {
- // unknown
-const type: any = flattenObjectType(inferExpressionType(expr.left!, scope));
+for (const arg of expr.indexes) {
+inferExpressionType(arg, scope);
+}
+} else if (expr.kind == ExpressionKind.Slice) {
+ // object<ParsedType>
+const type: class_ParsedType = flattenObjectType(inferExpressionType(expr.left!, scope));
 if (type.kind == TypeKind.arrayType) {
-return type.ref!;
+expr.type = type;
 } else if (type.kind == TypeKind.stringType) {
-return ParsedType(TypeKind.intType, null, null);
+expr.type = type;
 } else {
 panic("Not an array type");
 }
+for (const arg of expr.indexes) {
+inferExpressionType(arg, scope);
 }
-return ParsedType(TypeKind.unknownType, null, null);
+} else if (expr.kind == ExpressionKind.ArrayConstant) {
+expr.type = ParsedType(TypeKind.arrayInitType, null, null);
+} else if (expr.kind == ExpressionKind.Index) {
+ // object<ParsedType>
+const type: class_ParsedType = flattenObjectType(inferExpressionType(expr.left!, scope));
+if (type.kind == TypeKind.arrayType) {
+expr.type = type.ref!;
+} else if (type.kind == TypeKind.stringType) {
+expr.type = ParsedType(TypeKind.intType, null, null);
+} else {
+panic("Not an array type");
+}
+for (const arg of expr.indexes) {
+inferExpressionType(arg, scope);
+}
+}
+if (expr.type.kind == TypeKind.unknownType && expr.kind != ExpressionKind.NilConstant) {
+panic("Could not infer type of expression");
+}
+return expr.type;
 }
 export function getFieldType(classDefinition:class_Statement,identifier:string):class_ParsedType {
 for (const arg of classDefinition.defnArguments) {
@@ -172,8 +306,8 @@ inferPublicInterface(stmt.block, scope);
 export function resolveType(type:class_ParsedType,scope:Map<string,class_ParsedType>):void {
 if (type.kind == TypeKind.objectType) {
 if (scope.has(type.identifier!)) {
- // unknown
-const resolvedType: any = scope.get(type.identifier!);
+ // object<ParsedType>
+const resolvedType: class_ParsedType = scope.get(type.identifier!)!;
 if (resolvedType.kind == TypeKind.classType || resolvedType.kind == TypeKind.enumDefinitionType) {
 type.stmt = resolvedType.stmt;
 } else {

@@ -90,6 +90,17 @@ function load(path: string) {
 
         const moduleScope = new Map<string, class_ParsedType>();
         
+        const fakePanicStatement = Statement(StatementKind.FunctionStatement);
+        fakePanicStatement.identifier = "panic";
+        fakePanicStatement.type = ParsedType(TypeKind.voidType, null, null);
+        moduleScope.set("panic", ParsedType(TypeKind.functionType, null, fakePanicStatement));
+
+
+        const fakeImportStatement = Statement(StatementKind.FunctionStatement);
+        fakeImportStatement.identifier = "panic";
+        fakeImportStatement.type = ParsedType(TypeKind.stringType, null, null);
+        moduleScope.set("generateTSImport", ParsedType(TypeKind.functionType, null, fakeImportStatement));
+
         for (const stmt of module.block) {
             if (stmt.kind === StatementKind.ImportStatement) {
                 const ref = loadModule(join(module.path, "..", stmt.identifier + ".crib"));

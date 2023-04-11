@@ -33,8 +33,8 @@ function descopeBlock(block:class_Statement[]):void {
  // int
 let idx: number = 0;
 while (idx < block.length) {
- // unknown
-const stmt: any = __index_get(block, idx);
+ // object<Statement>
+const stmt: class_Statement = block[idx];
 idx = idx + 1;
 if (stmt.kind == StatementKind.FunctionStatement || stmt.kind == StatementKind.ClassStatement) {
 descopeCode(stmt.defnArguments, stmt.block, scopeSet, stmt.kind == StatementKind.ClassStatement);
@@ -47,18 +47,18 @@ descopeBlock(ei.block);
 descopeBlock(stmt.block);
 descopeBlock(stmt.elseBlock);
 } else if (stmt.kind == StatementKind.ForStatement || stmt.kind == StatementKind.WhileStatement) {
-stmt.value = descopeExpression(stmt.value);
+stmt.value = descopeExpression(stmt.value!);
 descopeBlock(stmt.block);
 } else if (stmt.kind == StatementKind.ExpressionStatement) {
-stmt.value = descopeExpression(stmt.value);
+stmt.value = descopeExpression(stmt.value!);
 } else if (stmt.kind == StatementKind.ReturnStatement) {
-stmt.value = descopeExpression(stmt.value);
+stmt.value = descopeExpression(stmt.value!);
 } else if (stmt.kind == StatementKind.LetStatement || stmt.kind == StatementKind.ConstStatement) {
 if (stmt.value != null) {
-stmt.value = descopeExpression(stmt.value);
+stmt.value = descopeExpression(stmt.value!);
 }
 } else if (stmt.kind == StatementKind.AssignStatement) {
-stmt.value = descopeExpression(stmt.value);
+stmt.value = descopeExpression(stmt.value!);
 stmt.lhs = descopeExpression(stmt.lhs!);
 }
 }
@@ -77,18 +77,18 @@ expr.left = descopeExpression(expr.left!);
 expr.left = descopeExpression(expr.left!);
 } else if (expr.kind == ExpressionKind.Index || expr.kind == ExpressionKind.Slice) {
 expr.left = descopeExpression(expr.left!);
- // unknown
-let idx: any = 0;
+ // int
+let idx: number = 0;
 while (idx < expr.indexes.length) {
-__index_set(expr.indexes, idx, descopeExpression(__index_get(expr.indexes, idx)));
+expr.indexes[idx] = descopeExpression(expr.indexes[idx]);
 idx = idx + 1;
 }
 } else if (expr.kind == ExpressionKind.Invoke) {
 expr.left = descopeExpression(expr.left!);
- // unknown
-let idx: any = 0;
+ // int
+let idx: number = 0;
 while (idx < expr.indexes.length) {
-__index_set(expr.indexes, idx, descopeExpression(__index_get(expr.indexes, idx)));
+expr.indexes[idx] = descopeExpression(expr.indexes[idx]);
 idx = idx + 1;
 }
 }

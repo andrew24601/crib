@@ -34,7 +34,7 @@ function inferPublicInterface(module: Statement[], outerScope: ParsedType[string
         if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
             inferClassFunctionInterface(scope, stmt)
         elseif stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
-            if stmt.type = nil
+            if stmt.type.kind = TypeKind.unknownType
                 stmt.type := inferPublicExpressionType(expr: stmt.value!, scope)
             elseif stmt.type <> nil
                 resolveType(type: stmt.type, scope)
@@ -45,22 +45,72 @@ function inferPublicInterface(module: Statement[], outerScope: ParsedType[string
     return scope
 end
 
+function effectiveType(type: ParsedType) : ParsedType
+    if type.kind = TypeKind.pointerType
+        return effectiveType(type: type.ref!)
+    end
+    return type
+end
+
 public function applyScopeToBlock(block: Statement[], scope: ParsedType[string])
     for stmt of block
         if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
             inferClassFunctionInterface(scope, stmt)
+        end
+    end
 
+    for stmt of block
+        if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
             const innerScope := cloneScope(scope)
             for arg of stmt.defnArguments
                 innerScope.set(key: arg.identifier, value: arg.type)
             end
             inferBlock(block: stmt.block, scope: innerScope)
         elseif stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
+            if stmt.value <> nil
+                inferExpressionType(expr: stmt.value!, scope)
+            end
             if stmt.type.kind = TypeKind.unknownType
                 stmt.type := inferExpressionType(expr: stmt.value!, scope)
+                if stmt.type.kind = TypeKind.unknownType
+                    panic(message: "Could not infer type of " + stmt.identifier!)
+                end
             else
                 resolveType(type: stmt.type, scope)
             end
+            scope.set(key: stmt.identifier!, value: stmt.type)
+        elseif stmt.kind = StatementKind.ReturnStatement
+            if stmt.value <> nil
+                stmt.value.type := inferExpressionType(expr: stmt.value!, scope)
+            end
+        elseif stmt.kind = StatementKind.WhileStatement
+            inferExpressionType(expr: stmt.value!, scope)
+            inferBlock(block: stmt.block, scope)
+        elseif stmt.kind = StatementKind.RepeatStatement
+            inferBlock(block: stmt.block, scope)
+            inferExpressionType(expr: stmt.value!, scope)
+        elseif stmt.kind = StatementKind.ForStatement
+            inferExpressionType(expr: stmt.value!, scope)
+            const sequenceType := effectiveType(type: stmt.value!.type)
+            if sequenceType.kind <> TypeKind.arrayType
+                panic(message: "For loop must iterate over an array")
+            end
+            const innerScope := cloneScope(scope)
+            innerScope.set(key: stmt.identifier!, value: sequenceType.ref!)
+            inferBlock(block: stmt.block, scope: innerScope)
+        elseif stmt.kind = StatementKind.IfStatement
+            inferExpressionType(expr: stmt.value!, scope)
+            inferBlock(block: stmt.block, scope)
+            for ei of stmt.elseIf
+                inferExpressionType(expr: ei.value, scope)
+                inferBlock(block: ei.block, scope)
+            end
+            inferBlock(block: stmt.elseBlock!, scope)
+        elseif stmt.kind = StatementKind.ExpressionStatement
+            inferExpressionType(expr: stmt.value!, scope)
+        elseif stmt.kind = StatementKind.AssignStatement
+            inferExpressionType(expr: stmt.lhs!, scope)
+            inferExpressionType(expr: stmt.value!, scope)
         end
     end
 end
@@ -87,54 +137,129 @@ function inferExpressionType(expr: Expression, scope: ParsedType[string]): Parse
     let returnType: ParsedType?
     if expr.kind = ExpressionKind.Identifier
         if scope.has(key: expr.value!)
-            return scope.get(key: expr.value!)!
+            expr.type := scope.get(key: expr.value!)!
         else
             panic(message: "Could not resolve identifier " + expr.value)
         end
     elseif expr.kind = ExpressionKind.IntConstant
-        return ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
+        expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
     elseif expr.kind = ExpressionKind.StringConstant
-        return ParsedType(kind: TypeKind.stringType, ref: nil, stmt: nil)
+        expr.type := ParsedType(kind: TypeKind.stringType, ref: nil, stmt: nil)
     elseif expr.kind = ExpressionKind.BoolConstant
-        return ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
-    elseif expr.kind = ExpressionKind.Dot
+        expr.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
+    elseif expr.kind = ExpressionKind.Not
+        inferExpressionType(expr: expr.left!, scope)
+        expr.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
+    elseif expr.kind = ExpressionKind.And or expr.kind = ExpressionKind.Or or expr.kind = ExpressionKind.Equals or expr.kind = ExpressionKind.NotEquals or expr.kind = ExpressionKind.LessThan or expr.kind = ExpressionKind.LessThanEquals or expr.kind = ExpressionKind.GreaterThan or expr.kind = ExpressionKind.GreaterThanEquals
+        inferExpressionType(expr: expr.left!, scope)
+        inferExpressionType(expr: expr.right!, scope)
+        expr.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
+    elseif expr.kind = ExpressionKind.Add
+        inferExpressionType(expr: expr.left!, scope)
+        inferExpressionType(expr: expr.right!, scope)
+        if expr.left!.type.kind = TypeKind.intType and expr.right!.type.kind = TypeKind.intType
+            expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
+        else
+            expr.type := ParsedType(kind: TypeKind.stringType, ref: nil, stmt: nil)
+        end
+    elseif expr.kind = ExpressionKind.Subtract or expr.kind = ExpressionKind.Multiply or expr.kind = ExpressionKind.Divide or expr.kind = ExpressionKind.Modulo
+        inferExpressionType(expr: expr.left!, scope)
+        inferExpressionType(expr: expr.right!, scope)
+        expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
+    elseif expr.kind = ExpressionKind.Dot or expr.kind = ExpressionKind.OptDot
         const type := flattenObjectType(type: inferExpressionType(expr: expr.left!, scope))
         if type.kind = TypeKind.objectType and type.stmt?.kind = StatementKind.ClassStatement
-            return getFieldType(classDefinition: type.stmt, identifier: expr.value!)
+            expr.type := getFieldType(classDefinition: type.stmt, identifier: expr.value!)
         elseif type.kind = TypeKind.enumDefinitionType
             returnType := ParsedType(kind: TypeKind.enumType, ref: nil, stmt: type.stmt)
             returnType.identifier := type.stmt!.identifier
-            return returnType
+            expr.type := returnType
         elseif type.kind = TypeKind.stringType and expr.value = "length"
-            return ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
+            expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
         elseif type.kind = TypeKind.arrayType and expr.value = "length"
-            return ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
+            expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
+        elseif type.kind = TypeKind.arrayType and expr.value = "push"
+            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
+            fakeStmt.type := ParsedType(kind: TypeKind.voidType, ref: nil, stmt: nil)
+            expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
+        elseif type.kind = TypeKind.mapType and expr.value = "has"
+            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
+            fakeStmt.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
+            expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
+        elseif type.kind = TypeKind.mapType and expr.value = "delete"
+            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
+            fakeStmt.type := ParsedType(kind: TypeKind.voidType, ref: nil, stmt: nil)
+            expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
+        elseif type.kind = TypeKind.mapType and expr.value = "get"
+            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
+            fakeStmt.type := type.ref!
+            expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
+        elseif type.kind = TypeKind.mapType and expr.value = "set"
+            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
+            fakeStmt.type := ParsedType(kind: TypeKind.voidType, ref: nil, stmt: nil)
+            expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
+        elseif type.kind = TypeKind.mapType and expr.value = "keys"
+            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
+            fakeStmt.type := ParsedType(kind: TypeKind.arrayType, ref: type.mapKeyRef!, stmt: nil)
+            expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
         else
             panic(message: "Not an object type")
         end
-
+    elseif expr.kind = ExpressionKind.Bang
+        inferExpressionType(expr: expr.left!, scope)
+        if expr.left!.type.kind = TypeKind.nullableType
+            expr.type := expr.left!.type.ref!
+        else
+            expr.type := expr.left!.type
+        end
     elseif expr.kind = ExpressionKind.Invoke
         const type := inferExpressionType(expr: expr.left!, scope)
         if type.kind = TypeKind.functionType
-            return type.stmt.type
+            expr.type := type.stmt!.type!
+            if expr.type.kind = TypeKind.unknownType
+                panic(message: "Could not infer return type of function")
+            end
         elseif type.kind = TypeKind.classType
             returnType := ParsedType(kind: TypeKind.objectType, ref: nil, stmt: type.stmt)
-            returnType.identifier := type.stmt.identifier
-            return returnType
+            returnType.identifier := type.stmt!.identifier
+            expr.type := returnType
         else
             panic(message: "Not a function or class type")
         end
-    elseif expr.kind = ExpressionKind.Index
+        for arg of expr.indexes
+            inferExpressionType(expr: arg, scope)
+        end
+    elseif expr.kind = ExpressionKind.Slice
         const type := flattenObjectType(type: inferExpressionType(expr: expr.left!, scope))
         if type.kind = TypeKind.arrayType
-            return type.ref!
+            expr.type := type
         elseif type.kind = TypeKind.stringType
-            return ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
+            expr.type := type
         else
             panic(message: "Not an array type")
         end
+        for arg of expr.indexes
+            inferExpressionType(expr: arg, scope)
+        end
+    elseif expr.kind = ExpressionKind.ArrayConstant
+        expr.type := ParsedType(kind: TypeKind.arrayInitType, ref: nil, stmt: nil)
+    elseif expr.kind = ExpressionKind.Index
+        const type := flattenObjectType(type: inferExpressionType(expr: expr.left!, scope))
+        if type.kind = TypeKind.arrayType
+            expr.type := type.ref!
+        elseif type.kind = TypeKind.stringType
+            expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
+        else
+            panic(message: "Not an array type")
+        end
+        for arg of expr.indexes
+            inferExpressionType(expr: arg, scope)
+        end
     end
-    return ParsedType(kind: TypeKind.unknownType, ref: nil, stmt: nil)
+    if expr.type.kind = TypeKind.unknownType and expr.kind <> ExpressionKind.NilConstant
+        panic(message: "Could not infer type of expression")
+    end
+    return expr.type
 end
 
 function getFieldType(classDefinition: Statement, identifier: string): ParsedType
@@ -179,7 +304,7 @@ end
 function resolveType(type: ParsedType, scope: ParsedType[string])
     if type.kind = TypeKind.objectType
         if scope.has(key: type.identifier!)
-            const resolvedType := scope.get(key: type.identifier!)
+            const resolvedType := scope.get(key: type.identifier!)!
             if resolvedType.kind = TypeKind.classType or resolvedType.kind = TypeKind.enumDefinitionType
                 type.stmt := resolvedType.stmt
             else

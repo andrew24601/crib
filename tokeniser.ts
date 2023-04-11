@@ -52,8 +52,8 @@ _o.value = value;
 function parseNextToken():Token {
  // nullable<string>
 let ident: string | null = null;
-while (pos < length && isWhitespace(__index_get(text, pos))) {
-if (__index_get(text, pos) == 10) {
+while (pos < length && isWhitespace(text.charCodeAt(pos))) {
+if (text.charCodeAt(pos) == 10) {
 _o.line = _o.line + 1;
 }
 pos = pos + 1;
@@ -63,10 +63,10 @@ return Token.tkEOF;
 }
 tokenStart = pos;
  // int
-let ch: number = __index_get(text, pos);
+let ch: number = text.charCodeAt(pos);
 pos = pos + 1;
 if (isLeadingIdentifier(ch)) {
-while (pos < length && isTrailingIdentifier(__index_get(text, pos))) {
+while (pos < length && isTrailingIdentifier(text.charCodeAt(pos))) {
 pos = pos + 1;
 }
 ident = __slice(text, tokenStart, pos);
@@ -128,13 +128,13 @@ return Token.tkPublic;
 return Token.tkIdentifier;
 }
 if (isDigit(ch)) {
-while (pos < length && isDigit(__index_get(text, pos))) {
+while (pos < length && isDigit(text.charCodeAt(pos))) {
 pos = pos + 1;
 }
 return Token.tkIntConstant;
 }
 if (ch == 39 || ch == 34) {
-while (pos < length && __index_get(text, pos) != ch) {
+while (pos < length && text.charCodeAt(pos) != ch) {
 pos = pos + 1;
 }
 if (pos < length) {
@@ -163,9 +163,9 @@ match = Token.tkEquals;
 } else if (ch == 38) {
 match = Token.tkAmpersand;
 } else if (ch == 46) {
-if (pos < length && __index_get(text, pos) == 46) {
+if (pos < length && text.charCodeAt(pos) == 46) {
 pos = pos + 1;
-if (pos < length && __index_get(text, pos) == 60) {
+if (pos < length && text.charCodeAt(pos) == 60) {
 pos = pos + 1;
 match = Token.tkRangeExclusive;
 } else {
@@ -175,14 +175,14 @@ match = Token.tkRangeInclusive;
 match = Token.tkDot;
 }
 } else if (ch == 58) {
-if (pos < length && __index_get(text, pos) == 61) {
+if (pos < length && text.charCodeAt(pos) == 61) {
 pos = pos + 1;
 match = Token.tkAssign;
 } else {
 match = Token.tkColon;
 }
 } else if (ch == 63) {
-if (pos < length && __index_get(text, pos) == 46) {
+if (pos < length && text.charCodeAt(pos) == 46) {
 pos = pos + 1;
 match = Token.tkOptDot;
 } else {
@@ -199,17 +199,17 @@ match = Token.tkCaret;
 } else if (ch == 47) {
 match = Token.tkSlash;
 } else if (ch == 60) {
-if (pos < length && __index_get(text, pos) == 61) {
+if (pos < length && text.charCodeAt(pos) == 61) {
 pos = pos + 1;
 match = Token.tkLessThanEquals;
-} else if (pos < length && __index_get(text, pos) == 62) {
+} else if (pos < length && text.charCodeAt(pos) == 62) {
 pos = pos + 1;
 match = Token.tkNotEquals;
 } else {
 match = Token.tkLessThan;
 }
 } else if (ch == 62) {
-if (pos < length && __index_get(text, pos) == 61) {
+if (pos < length && text.charCodeAt(pos) == 61) {
 pos = pos + 1;
 match = Token.tkGreaterThanEquals;
 } else {

@@ -3,11 +3,11 @@ import Token, Tokeniser from ./tokeniser
 public enum StatementKind(ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement,
     ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement, ForRangeStatement, ForRangeExclusiveStatement)
 
-public enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract,
+public enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConstant, ArrayConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract,
     LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate,
     Invalid)
 
-public enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType)
+public enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, arrayInitType, unknownType, invalidType)
 
 const sharedUnknownType := ParsedType(kind: TypeKind.unknownType, ref: nil, stmt: nil)
 
@@ -82,7 +82,6 @@ class Parser(tokeniser: Tokeniser)
             type := ParsedType(kind: TypeKind.objectType, ref: nil, stmt: nil)
             type.identifier := identifier
             if acceptToken(token: Token.tkLessThan)
-                type.parameters := ParsedType[]
                 type.parameters.push(value: parseType())
                 while acceptToken(token: Token.tkComma)
                     type.parameters.push(value: parseType())
@@ -157,8 +156,6 @@ class Parser(tokeniser: Tokeniser)
             stmt.identifier := expectIdentifier()
             stmt.isPublic := isPublic
             expectToken(expected: Token.tkLeftParen)
-
-            stmt.identifierList := string[]
 
             stmt.identifierList.push(value: expectIdentifier())
             while acceptToken(token: Token.tkComma)
@@ -434,6 +431,9 @@ class Parser(tokeniser: Tokeniser)
         elseif tk = Token.tkNil
             e := Expression(kind: ExpressionKind.NilConstant, left: nil, right: nil)
             e.value := tokeniser.value()
+        elseif tk = Token.tkLeftBracket
+            expectToken(expected: Token.tkRightBracket)
+            e := Expression(kind: ExpressionKind.ArrayConstant, left: nil, right: nil)
         else
             panic(message: "Unexpected token: " + tokeniser.value())
             e:= Expression(kind: ExpressionKind.Invalid, left: nil, right: nil)
@@ -453,8 +453,6 @@ class Parser(tokeniser: Tokeniser)
             elseif acceptToken(token: Token.tkLeftParen)
                 e:= Expression(kind: ExpressionKind.Invoke, left: e, right: nil)
                 e.line := tokeniser.line
-                e.indexes := Expression[]
-                e.identifiers := string[]
                 if not acceptToken(token: Token.tkRightParen)
                     repeat
                         ident := expectIdentifier()
@@ -473,7 +471,6 @@ class Parser(tokeniser: Tokeniser)
             elseif acceptToken(token: Token.tkLeftBracket)
                 e:= Expression(kind: ExpressionKind.Index, left: e, right: nil)
                 e.line := tokeniser.line
-                e.indexes := Expression[]
                 if not acceptToken(token: Token.tkRightBracket)
 
                     e.indexes.push(value: parseExpression())

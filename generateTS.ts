@@ -34,10 +34,10 @@ exportClassifier = "export ";
 }
 for (const stmt of block) {
 if (stmt.kind == StatementKind.ConstStatement || stmt.kind == StatementKind.LetStatement) {
- // unknown
-const initValue: any = getInitValue(stmt.value, stmt.type);
- // unknown
-let declaration: any = "let";
+ // string
+const initValue: string = getInitValue(stmt.value, stmt.type);
+ // string
+let declaration: string = "let";
 if (stmt.kind == StatementKind.ConstStatement) {
 declaration = "const";
 }
@@ -83,7 +83,7 @@ generateBlock(stmt.block, false, false);
 _o.result.push("}");
 } else if (stmt.kind == StatementKind.AssignStatement) {
 if (stmt.lhs!.kind == ExpressionKind.Index) {
-_o.result.push("__index_set(" + generateJSExpression(stmt.lhs!.left!) + ", " + generateJSExpression(__index_get(stmt.lhs!.indexes, 0)) + ", " + generateJSExpression(stmt.value!) + ");");
+_o.result.push(generateJSExpression(stmt.lhs!.left!) + "[" + generateJSExpression(stmt.lhs!.indexes[0]) + "] = " + generateJSExpression(stmt.value!) + ";");
 } else {
 _o.result.push(generateJSExpression(stmt.lhs!) + " = " + generateJSExpression(stmt.value!) + ";");
 }
@@ -154,6 +154,9 @@ export function generateJSExpression(expr:class_Expression):string {
 if (expr == null) {
 return "*nil";
 }
+if (expr.type.kind == TypeKind.unknownType && expr.kind != ExpressionKind.NilConstant) {
+panic("expression not inferred");
+}
 if (expr.kind == ExpressionKind.LessThan) {
 return generateJSExpression(expr.left!) + " < " + generateJSExpression(expr.right!);
 } else if (expr.kind == ExpressionKind.GreaterThan) {
@@ -204,10 +207,22 @@ return "__slice(" + generateJSExpression(expr.left!) + ", " + generateArguments(
 if (expr.indexes.length == 0) {
 return "[]";
 }
+if (effectiveType(expr.left!.type).kind == TypeKind.stringType) {
+return generateJSExpression(expr.left!) + ".charCodeAt(" + generateArguments(expr.indexes) + ")";
+} else if (effectiveType(expr.left!.type).kind == TypeKind.arrayType) {
+return generateJSExpression(expr.left!) + "[" + generateArguments(expr.indexes) + "]";
+} else {
 return "__index_get(" + generateJSExpression(expr.left!) + ", " + generateArguments(expr.indexes) + ")";
+}
 } else {
 return "*expression*";
 }
+}
+export function effectiveType(type:class_ParsedType):class_ParsedType {
+if (type.kind == TypeKind.pointerType) {
+return effectiveType(type.ref!);
+}
+return type;
 }
 export function generateTSType(type:class_ParsedType | null):string {
 if (type == null) {
@@ -252,11 +267,11 @@ if (args.length == 0) {
 return "";
 }
  // string
-let result: string = generateDefnArgument(__index_get(args, 0));
+let result: string = generateDefnArgument(args[0]);
  // int
 let idx: number = 1;
 while (idx < args.length) {
-result = result + "," + generateDefnArgument(__index_get(args, idx));
+result = result + "," + generateDefnArgument(args[idx]);
 idx = idx + 1;
 }
 return result;
@@ -266,22 +281,22 @@ if (args.length == 0) {
 return "";
 }
  // string
-let result: string = generateJSExpression(__index_get(args, 0));
+let result: string = generateJSExpression(args[0]);
  // int
 let idx: number = 1;
 while (idx < args.length) {
-result = result + ", " + generateJSExpression(__index_get(args, idx));
+result = result + ", " + generateJSExpression(args[idx]);
 idx = idx + 1;
 }
 return result;
 }
 export function generateJSEnumValues(stmt:class_Statement):string {
  // string
-let result: string = __index_get(stmt.identifierList, 0);
+let result: string = stmt.identifierList[0];
  // int
 let idx: number = 1;
 while (idx < stmt.identifierList.length) {
-result = result + ", " + __index_get(stmt.identifierList, idx);
+result = result + ", " + stmt.identifierList[idx];
 idx = idx + 1;
 }
 return result;

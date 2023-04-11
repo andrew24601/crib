@@ -6,10 +6,10 @@ export enum StatementKind {
 ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement, ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement, ForRangeStatement, ForRangeExclusiveStatement
 };
 export enum ExpressionKind {
-IntConstant, DoubleConstant, StringConstant, NilConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate, Invalid
+IntConstant, DoubleConstant, StringConstant, NilConstant, ArrayConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate, Invalid
 };
 export enum TypeKind {
-intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, unknownType, invalidType
+intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, arrayInitType, unknownType, invalidType
 };
  // object<ParsedType>
 const sharedUnknownType: class_ParsedType = ParsedType(TypeKind.unknownType, null, null);
@@ -162,7 +162,6 @@ type = ParsedType(TypeKind.stringType, null, null);
 type = ParsedType(TypeKind.objectType, null, null);
 type.identifier = identifier;
 if (acceptToken(Token.tkLessThan)) {
-type.parameters = [];
 type.parameters.push(parseType());
 while (acceptToken(Token.tkComma)) {
 type.parameters.push(parseType());
@@ -237,7 +236,6 @@ stmt = Statement(StatementKind.EnumStatement);
 stmt.identifier = expectIdentifier();
 stmt.isPublic = isPublic;
 expectToken(Token.tkLeftParen);
-stmt.identifierList = [];
 stmt.identifierList.push(expectIdentifier());
 while (acceptToken(Token.tkComma)) {
 stmt.identifierList.push(expectIdentifier());
@@ -503,6 +501,9 @@ e.value = tokeniser.value();
 } else if (tk == Token.tkNil) {
 e = Expression(ExpressionKind.NilConstant, null, null);
 e.value = tokeniser.value();
+} else if (tk == Token.tkLeftBracket) {
+expectToken(Token.tkRightBracket);
+e = Expression(ExpressionKind.ArrayConstant, null, null);
 } else {
 panic("Unexpected token: " + tokeniser.value());
 e = Expression(ExpressionKind.Invalid, null, null);
@@ -521,8 +522,6 @@ e = Expression(ExpressionKind.Bang, e, null);
 } else if (acceptToken(Token.tkLeftParen)) {
 e = Expression(ExpressionKind.Invoke, e, null);
 e.line = tokeniser.line;
-e.indexes = [];
-e.identifiers = [];
 if (!acceptToken(Token.tkRightParen)) {
 do {
 ident = expectIdentifier();
@@ -541,7 +540,6 @@ expectToken(Token.tkRightParen);
 } else if (acceptToken(Token.tkLeftBracket)) {
 e = Expression(ExpressionKind.Index, e, null);
 e.line = tokeniser.line;
-e.indexes = [];
 if (!acceptToken(Token.tkRightBracket)) {
 e.indexes.push(parseExpression());
 if (acceptToken(Token.tkRangeInclusive)) {

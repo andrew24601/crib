@@ -85,7 +85,7 @@ class generateTS(block:Statement[]^)
                 result.push(value: "}")
             elseif stmt.kind = StatementKind.AssignStatement
                 if stmt.lhs!.kind = ExpressionKind.Index
-                    result.push(value: "__index_set(" + generateJSExpression(expr: stmt.lhs!.left!) + ", " + generateJSExpression(expr: stmt.lhs!.indexes[0]) + ", " + generateJSExpression(expr: stmt.value!) + ");")
+                    result.push(value: generateJSExpression(expr: stmt.lhs!.left!) + "[" + generateJSExpression(expr: stmt.lhs!.indexes[0]) + "] = " + generateJSExpression(expr: stmt.value!) + ";")
                 else
                     result.push(value: generateJSExpression(expr: stmt.lhs!) + " = " + generateJSExpression(expr: stmt.value!) + ";")
                 end
@@ -167,6 +167,10 @@ function generateJSExpression(expr: Expression^):string
         return "*nil"
     end
 
+    if expr.type.kind = TypeKind.unknownType and expr.kind <> ExpressionKind.NilConstant
+        panic(message: "expression not inferred")
+    end
+
     if expr.kind = ExpressionKind.LessThan
         return generateJSExpression(expr: expr.left!) + " < " + generateJSExpression(expr: expr.right!)
     elseif expr.kind = ExpressionKind.GreaterThan
@@ -217,10 +221,23 @@ function generateJSExpression(expr: Expression^):string
         if expr.indexes.length = 0
             return "[]"
         end
-        return "__index_get(" + generateJSExpression(expr: expr.left!) + ", " + generateArguments(args: expr.indexes) + ")"
+        if effectiveType(type: expr.left!.type).kind = TypeKind.stringType
+            return generateJSExpression(expr: expr.left!) + ".charCodeAt(" + generateArguments(args: expr.indexes) + ")"
+        elseif effectiveType(type: expr.left!.type).kind = TypeKind.arrayType
+            return generateJSExpression(expr: expr.left!) + "[" + generateArguments(args: expr.indexes) + "]"
+        else
+            return "__index_get(" + generateJSExpression(expr: expr.left!) + ", " + generateArguments(args: expr.indexes) + ")"
+        end
     else
         return "*expression*"
     end
+end
+
+function effectiveType(type: ParsedType) : ParsedType
+    if type.kind = TypeKind.pointerType
+        return effectiveType(type: type.ref!)
+    end
+    return type
 end
 
 function generateTSType(type: ParsedType?): string
@@ -304,7 +321,7 @@ function generateJSEnumValues(stmt: Statement^): string
 end
 
 function formatParsedType(type: ParsedType?): string
-    if type = null
+    if type = nil
         return "no type"
     elseif type.kind = TypeKind.objectType
         if type.stmt = nil

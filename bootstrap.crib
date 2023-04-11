@@ -45,18 +45,18 @@ function descopeCode(args: DefnArgument[]^, block: Statement[]^, outerScope: str
                 descopeBlock(block: stmt.block)
                 descopeBlock(block: stmt.elseBlock)
             elseif stmt.kind = StatementKind.ForStatement or stmt.kind = StatementKind.WhileStatement
-                stmt.value := descopeExpression(expr: stmt.value)
+                stmt.value := descopeExpression(expr: stmt.value!)
                 descopeBlock(block: stmt.block)
             elseif stmt.kind = StatementKind.ExpressionStatement
-                stmt.value := descopeExpression(expr: stmt.value)
+                stmt.value := descopeExpression(expr: stmt.value!)
             elseif stmt.kind = StatementKind.ReturnStatement
-                stmt.value := descopeExpression(expr: stmt.value)
+                stmt.value := descopeExpression(expr: stmt.value!)
             elseif stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
                 if stmt.value <> nil
-                    stmt.value := descopeExpression(expr: stmt.value)
+                    stmt.value := descopeExpression(expr: stmt.value!)
                 end
             elseif stmt.kind = StatementKind.AssignStatement
-                stmt.value := descopeExpression(expr: stmt.value)
+                stmt.value := descopeExpression(expr: stmt.value!)
                 stmt.lhs := descopeExpression(expr: stmt.lhs!)
             end
         end
