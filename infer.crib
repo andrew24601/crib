@@ -1,7 +1,11 @@
 import Statement, StatementKind, ParsedType, TypeKind, Expression, ExpressionKind from ./parser
 
-function cloneScope(scope: ParsedType[string]?): ParsedType[string]
-    const newScope: ParsedType[string]
+public enum IdentifierOriginKind(Field, Parameter, Class, Enum, Function)
+
+public class IdentifierOrigin(public kind: IdentifierOriginKind, public type: ParsedType, public owner: Statement, public isMutable: bool) end
+
+function cloneScope(scope: IdentifierOrigin[string]?): IdentifierOrigin[string]
+    const newScope: IdentifierOrigin[string]
     if scope = nil
         return newScope
     end
@@ -11,23 +15,23 @@ function cloneScope(scope: ParsedType[string]?): ParsedType[string]
     return newScope
 end 
 
-function getBlockDefinitions(block: Statement[], outerScope: ParsedType[string]?): ParsedType[string]
+function getBlockDefinitions(block: Statement[], outerScope: IdentifierOrigin[string]?): IdentifierOrigin[string]
     const scope := cloneScope(scope: outerScope)
 
     for stmt of block
         if stmt.kind = StatementKind.FunctionStatement
-            scope[stmt.identifier!] := ParsedType(kind: TypeKind.functionType, ref: nil, stmt)
+            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Function, type: ParsedType(kind: TypeKind.functionType, ref: nil, stmt), owner: stmt, isMutable: false)
         elseif stmt.kind = StatementKind.ClassStatement
-            scope[stmt.identifier!] := ParsedType(kind: TypeKind.classType, ref: nil, stmt)
+            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Class, type: ParsedType(kind: TypeKind.classType, ref: nil, stmt), owner: stmt, isMutable: false)
         elseif stmt.kind = StatementKind.EnumStatement
-            scope[stmt.identifier!] := ParsedType(kind: TypeKind.enumDefinitionType, ref: nil, stmt)
+            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Enum, type: ParsedType(kind: TypeKind.enumDefinitionType, ref: nil, stmt), owner: stmt, isMutable: false)
         end
     end
 
     return scope
 end
 
-function inferPublicInterface(module: Statement[], outerScope: ParsedType[string]): ParsedType[string]
+function inferPublicInterface(module: Statement[], outerScope: IdentifierOrigin[string]): IdentifierOrigin[string]
     const scope := getBlockDefinitions(block: module, outerScope)
 
     for stmt of module
@@ -52,7 +56,7 @@ function effectiveType(type: ParsedType) : ParsedType
     return type
 end
 
-public function applyScopeToBlock(block: Statement[], scope: ParsedType[string])
+public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[string], owner: Statement)
     for stmt of block
         if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
             inferClassFunctionInterface(scope, stmt)
@@ -63,9 +67,13 @@ public function applyScopeToBlock(block: Statement[], scope: ParsedType[string])
         if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
             const innerScope := cloneScope(scope)
             for arg of stmt.defnArguments
-                innerScope[arg.identifier] := arg.type
+                if stmt.kind = StatementKind.ClassStatement and arg.isPublic
+                    innerScope[arg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: arg.type, owner: stmt, isMutable: true)
+                else
+                    innerScope[arg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: arg.type, owner: stmt, isMutable: true)
+                end
             end
-            inferBlock(block: stmt.block, scope: innerScope)
+            inferBlock(block: stmt.block, scope: innerScope, owner: stmt)
         elseif stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
             if stmt.value <> nil
                 inferExpressionType(expr: stmt.value!, scope)
@@ -78,16 +86,20 @@ public function applyScopeToBlock(block: Statement[], scope: ParsedType[string])
             else
                 resolveType(type: stmt.type, scope)
             end
-            scope[stmt.identifier!] := stmt.type
+            if owner.kind = StatementKind.ClassStatement and stmt.isPublic
+                scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: stmt.type, owner, isMutable: stmt.kind = StatementKind.LetStatement)
+            else
+                scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: stmt.type, owner, isMutable: stmt.kind = StatementKind.LetStatement)
+            end
         elseif stmt.kind = StatementKind.ReturnStatement
             if stmt.value <> nil
                 stmt.value.type := inferExpressionType(expr: stmt.value!, scope)
             end
         elseif stmt.kind = StatementKind.WhileStatement
             inferExpressionType(expr: stmt.value!, scope)
-            inferBlock(block: stmt.block, scope)
+            inferBlock(block: stmt.block, scope, owner)
         elseif stmt.kind = StatementKind.RepeatStatement
-            inferBlock(block: stmt.block, scope)
+            inferBlock(block: stmt.block, scope, owner)
             inferExpressionType(expr: stmt.value!, scope)
         elseif stmt.kind = StatementKind.ForStatement
             inferExpressionType(expr: stmt.value!, scope)
@@ -96,16 +108,16 @@ public function applyScopeToBlock(block: Statement[], scope: ParsedType[string])
                 panic(message: "For loop must iterate over an array")
             end
             const innerScope := cloneScope(scope)
-            innerScope[stmt.identifier!] := sequenceType.ref!
-            inferBlock(block: stmt.block, scope: innerScope)
+            innerScope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: sequenceType.ref!, owner, isMutable: true)
+            inferBlock(block: stmt.block, scope: innerScope, owner)
         elseif stmt.kind = StatementKind.IfStatement
             inferExpressionType(expr: stmt.value!, scope)
-            inferBlock(block: stmt.block, scope)
+            inferBlock(block: stmt.block, scope, owner)
             for ei of stmt.elseIf
                 inferExpressionType(expr: ei.value, scope)
-                inferBlock(block: ei.block, scope)
+                inferBlock(block: ei.block, scope, owner)
             end
-            inferBlock(block: stmt.elseBlock!, scope)
+            inferBlock(block: stmt.elseBlock!, scope, owner)
         elseif stmt.kind = StatementKind.ExpressionStatement
             inferExpressionType(expr: stmt.value!, scope)
         elseif stmt.kind = StatementKind.AssignStatement
@@ -122,7 +134,7 @@ function flattenObjectType(type: ParsedType): ParsedType
     return type
 end
 
-function inferPublicExpressionType(expr: Expression, scope: ParsedType[string]): ParsedType
+function inferPublicExpressionType(expr: Expression, scope: IdentifierOrigin[string]): ParsedType
     if expr.kind = ExpressionKind.IntConstant
         return ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
     elseif expr.kind = ExpressionKind.StringConstant
@@ -133,11 +145,12 @@ function inferPublicExpressionType(expr: Expression, scope: ParsedType[string]):
     return ParsedType(kind: TypeKind.unknownType, ref: nil, stmt: nil)
 end
 
-function inferExpressionType(expr: Expression, scope: ParsedType[string]): ParsedType
+function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string]): ParsedType
     let returnType: ParsedType?
     if expr.kind = ExpressionKind.Identifier
         if scope.has(key: expr.value!)
-            expr.type := scope[expr.value!]!
+            expr.origin := scope[expr.value!]!
+            expr.type := expr.origin!.type
         else
             panic(message: "Could not resolve identifier " + expr.value)
         end
@@ -283,15 +296,15 @@ function getFieldType(classDefinition: Statement, identifier: string): ParsedTyp
     return ParsedType(kind: TypeKind.invalidType, ref: nil, stmt: nil)
 end
 
-public function inferBlock(block: Statement[], outerScope: ParsedType[string]): ParsedType[string]
+public function inferBlock(block: Statement[], outerScope: IdentifierOrigin[string], owner: Statement): IdentifierOrigin[string]
     const scope := getBlockDefinitions(block, outerScope)
 
-    applyScopeToBlock(block, scope)
+    applyScopeToBlock(block, scope, owner)
 
     return scope
 end
 
-function inferClassFunctionInterface(scope: ParsedType[string], stmt: Statement)
+function inferClassFunctionInterface(scope: IdentifierOrigin[string], stmt: Statement)
     resolveType(type: stmt.type, scope)
     for arg of stmt.defnArguments
         resolveType(type: arg.type, scope)
@@ -301,10 +314,10 @@ function inferClassFunctionInterface(scope: ParsedType[string], stmt: Statement)
     end
 end
 
-function resolveType(type: ParsedType, scope: ParsedType[string])
+function resolveType(type: ParsedType, scope: IdentifierOrigin[string])
     if type.kind = TypeKind.objectType
         if scope.has(key: type.identifier!)
-            const resolvedType := scope[type.identifier!]!
+            const resolvedType := scope[type.identifier!]!.type
             if resolvedType.kind = TypeKind.classType or resolvedType.kind = TypeKind.enumDefinitionType
                 type.stmt := resolvedType.stmt
             else

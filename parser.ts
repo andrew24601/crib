@@ -2,8 +2,10 @@ import { __index_get, __index_set, __slice, panic } from "./runtime"
 import { generateTSImport, importScope } from "./tboot"
 // import goes here
 import { Token, class_Tokeniser, Tokeniser} from "./tokeniser"
+// import goes here
+import { class_IdentifierOrigin, IdentifierOrigin} from "./infer"
 export enum StatementKind {
-ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement, ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement, ForRangeStatement, ForRangeExclusiveStatement
+ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement, ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement, ForRangeStatement, ForRangeExclusiveStatement, ModuleStatement
 };
 export enum ExpressionKind {
 IntConstant, DoubleConstant, StringConstant, NilConstant, ArrayConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate, Invalid
@@ -28,6 +30,8 @@ _o.identifiers = [];
 _o.type = sharedUnknownType;
  // int
 _o.line = 0;
+ // nullable<object<IdentifierOrigin>>
+_o.origin = null;
 return _o;
 }
 export interface class_Expression {
@@ -39,6 +43,7 @@ indexes:class_Expression[];
 identifiers:string[];
 type:class_ParsedType;
 line:number;
+origin:class_IdentifierOrigin | null;
 }
 export function ParsedType(kind:TypeKind,ref:class_ParsedType | null,stmt:class_Statement | null) {
 const _o = {} as class_ParsedType;

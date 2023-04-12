@@ -1,7 +1,8 @@
 import Token, Tokeniser from ./tokeniser
+import IdentifierOrigin from ./infer
 
 public enum StatementKind(ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement,
-    ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement, ForRangeStatement, ForRangeExclusiveStatement)
+    ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement, ForRangeStatement, ForRangeExclusiveStatement, ModuleStatement)
 
 public enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConstant, ArrayConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract,
     LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate,
@@ -17,6 +18,7 @@ public class Expression(public kind: ExpressionKind, public left: Expression?, p
     public let identifiers: string[]
     public let type: ParsedType := sharedUnknownType
     public let line := 0
+    public let origin: IdentifierOrigin?
 end
 
 public class ParsedType(public kind: TypeKind, public ref: ParsedType?, public stmt: Statement?)

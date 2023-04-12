@@ -3,14 +3,14 @@ import { Tokeniser } from "./tokeniser"
 import { Parser, class_Statement, StatementKind, Statement, ParsedType, TypeKind, class_ParsedType } from "./parser"
 import { readFileSync, writeFileSync } from "fs";
 import { generateTS } from "./generateTS"
-import { getBlockDefinitions, inferPublicInterface, inferBlock } from "./infer"
+import { getBlockDefinitions, inferPublicInterface, inferBlock,IdentifierOrigin,  IdentifierOriginKind, class_IdentifierOrigin } from "./infer"
 import { join } from "path"
 
 interface CribModule {
     path: string;
     block: class_Statement[];
-    definitions: Map<string, class_ParsedType>;
-    scope?: Map<string, class_ParsedType>;
+    definitions: Map<string, class_IdentifierOrigin>;
+    scope?: Map<string, class_IdentifierOrigin>;
 }
 
 function parseModule(path: string): class_Statement[] {
@@ -21,7 +21,7 @@ function parseModule(path: string): class_Statement[] {
     return block;
 }
 
-export function importScope(scope: Map<string, class_ParsedType>, stmt: class_Statement) {
+export function importScope(scope: Map<string, class_IdentifierOrigin>, stmt: class_Statement) {
     const module = parseModule("./" + stmt.identifier + ".crib")
     const definitions = getBlockDefinitions(module, null)
 
@@ -64,6 +64,8 @@ export function generateTSImport(stmt: class_Statement) {
 
 const modules = new Map<string, CribModule>();
 
+const systemModule = Statement(StatementKind.ModuleStatement)
+
 function load(path: string) {
     const loading: CribModule[] = [];
 
@@ -88,18 +90,17 @@ function load(path: string) {
     while (loading.length > 0) {
         const module = loading.pop()!;
 
-        const moduleScope = new Map<string, class_ParsedType>();
+        const moduleScope = new Map<string, class_IdentifierOrigin>();
         
         const fakePanicStatement = Statement(StatementKind.FunctionStatement);
         fakePanicStatement.identifier = "panic";
         fakePanicStatement.type = ParsedType(TypeKind.voidType, null, null);
-        moduleScope.set("panic", ParsedType(TypeKind.functionType, null, fakePanicStatement));
-
+        moduleScope.set("panic", IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(TypeKind.functionType, null, fakePanicStatement), systemModule, false));
 
         const fakeImportStatement = Statement(StatementKind.FunctionStatement);
         fakeImportStatement.identifier = "panic";
         fakeImportStatement.type = ParsedType(TypeKind.stringType, null, null);
-        moduleScope.set("generateTSImport", ParsedType(TypeKind.functionType, null, fakeImportStatement));
+        moduleScope.set("generateTSImport", IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(TypeKind.functionType, null, fakeImportStatement), systemModule, false));
 
         for (const stmt of module.block) {
             if (stmt.kind === StatementKind.ImportStatement) {
@@ -128,9 +129,10 @@ const filename = process.argv[2];
 const path = join(process.cwd(), filename);
 load(path)
 
+const moduleStatement = Statement(StatementKind.ModuleStatement);
 
 for (const m of modules.values()) {
-    inferBlock(m.block, m.scope!);
+    inferBlock(m.block, m.scope!, moduleStatement);
 
 //const validator = ResolveTypes(block, initialScope);
 

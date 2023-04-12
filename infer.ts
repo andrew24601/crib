@@ -2,9 +2,26 @@ import { __index_get, __index_set, __slice, panic } from "./runtime"
 import { generateTSImport, importScope } from "./tboot"
 // import goes here
 import { class_Statement, Statement, StatementKind, class_ParsedType, ParsedType, TypeKind, class_Expression, Expression, ExpressionKind} from "./parser"
-export function cloneScope(scope:Map<string,class_ParsedType> | null):Map<string,class_ParsedType> {
+export enum IdentifierOriginKind {
+Field, Parameter, Class, Enum, Function
+};
+export function IdentifierOrigin(kind:IdentifierOriginKind,type:class_ParsedType,owner:class_Statement,isMutable:boolean) {
+const _o = {} as class_IdentifierOrigin;
+_o.kind = kind;
+_o.type = type;
+_o.owner = owner;
+_o.isMutable = isMutable;
+return _o;
+}
+export interface class_IdentifierOrigin {
+kind:IdentifierOriginKind;
+type:class_ParsedType;
+owner:class_Statement;
+isMutable:boolean;
+}
+export function cloneScope(scope:Map<string,class_IdentifierOrigin> | null):Map<string,class_IdentifierOrigin> {
  // unknown
-const newScope: Map<string,class_ParsedType> = new Map<string,class_ParsedType>();
+const newScope: Map<string,class_IdentifierOrigin> = new Map<string,class_IdentifierOrigin>();
 if (scope == null) {
 return newScope;
 }
@@ -13,23 +30,23 @@ newScope.set(key, scope.get(key)!);
 }
 return newScope;
 }
-export function getBlockDefinitions(block:class_Statement[],outerScope:Map<string,class_ParsedType> | null):Map<string,class_ParsedType> {
+export function getBlockDefinitions(block:class_Statement[],outerScope:Map<string,class_IdentifierOrigin> | null):Map<string,class_IdentifierOrigin> {
  // unknown
-const scope: Map<string,class_ParsedType> = cloneScope(outerScope);
+const scope: Map<string,class_IdentifierOrigin> = cloneScope(outerScope);
 for (const stmt of block) {
 if (stmt.kind == StatementKind.FunctionStatement) {
-scope.set(stmt.identifier!, ParsedType(TypeKind.functionType, null, stmt));
+scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(TypeKind.functionType, null, stmt), stmt, false));
 } else if (stmt.kind == StatementKind.ClassStatement) {
-scope.set(stmt.identifier!, ParsedType(TypeKind.classType, null, stmt));
+scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Class, ParsedType(TypeKind.classType, null, stmt), stmt, false));
 } else if (stmt.kind == StatementKind.EnumStatement) {
-scope.set(stmt.identifier!, ParsedType(TypeKind.enumDefinitionType, null, stmt));
+scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Enum, ParsedType(TypeKind.enumDefinitionType, null, stmt), stmt, false));
 }
 }
 return scope;
 }
-export function inferPublicInterface(module:class_Statement[],outerScope:Map<string,class_ParsedType>):Map<string,class_ParsedType> {
+export function inferPublicInterface(module:class_Statement[],outerScope:Map<string,class_IdentifierOrigin>):Map<string,class_IdentifierOrigin> {
  // unknown
-const scope: Map<string,class_ParsedType> = getBlockDefinitions(module, outerScope);
+const scope: Map<string,class_IdentifierOrigin> = getBlockDefinitions(module, outerScope);
 for (const stmt of module) {
 if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.FunctionStatement) {
 inferClassFunctionInterface(scope, stmt);
@@ -49,7 +66,7 @@ return effectiveType(type.ref!);
 }
 return type;
 }
-export function applyScopeToBlock(block:class_Statement[],scope:Map<string,class_ParsedType>):void {
+export function applyScopeToBlock(block:class_Statement[],scope:Map<string,class_IdentifierOrigin>,owner:class_Statement):void {
 for (const stmt of block) {
 if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.FunctionStatement) {
 inferClassFunctionInterface(scope, stmt);
@@ -58,11 +75,15 @@ inferClassFunctionInterface(scope, stmt);
 for (const stmt of block) {
 if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.FunctionStatement) {
  // unknown
-const innerScope: Map<string,class_ParsedType> = cloneScope(scope);
+const innerScope: Map<string,class_IdentifierOrigin> = cloneScope(scope);
 for (const arg of stmt.defnArguments) {
-innerScope.set(arg.identifier, arg.type);
+if (stmt.kind == StatementKind.ClassStatement && arg.isPublic) {
+innerScope.set(arg.identifier, IdentifierOrigin(IdentifierOriginKind.Field, arg.type, stmt, true));
+} else {
+innerScope.set(arg.identifier, IdentifierOrigin(IdentifierOriginKind.Parameter, arg.type, stmt, true));
 }
-inferBlock(stmt.block, innerScope);
+}
+inferBlock(stmt.block, innerScope, stmt);
 } else if (stmt.kind == StatementKind.LetStatement || stmt.kind == StatementKind.ConstStatement) {
 if (stmt.value != null) {
 inferExpressionType(stmt.value!, scope);
@@ -75,16 +96,20 @@ panic("Could not infer type of " + stmt.identifier!);
 } else {
 resolveType(stmt.type, scope);
 }
-scope.set(stmt.identifier!, stmt.type);
+if (owner.kind == StatementKind.ClassStatement && stmt.isPublic) {
+scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Field, stmt.type, owner, stmt.kind == StatementKind.LetStatement));
+} else {
+scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Parameter, stmt.type, owner, stmt.kind == StatementKind.LetStatement));
+}
 } else if (stmt.kind == StatementKind.ReturnStatement) {
 if (stmt.value != null) {
 stmt.value.type = inferExpressionType(stmt.value!, scope);
 }
 } else if (stmt.kind == StatementKind.WhileStatement) {
 inferExpressionType(stmt.value!, scope);
-inferBlock(stmt.block, scope);
+inferBlock(stmt.block, scope, owner);
 } else if (stmt.kind == StatementKind.RepeatStatement) {
-inferBlock(stmt.block, scope);
+inferBlock(stmt.block, scope, owner);
 inferExpressionType(stmt.value!, scope);
 } else if (stmt.kind == StatementKind.ForStatement) {
 inferExpressionType(stmt.value!, scope);
@@ -94,17 +119,17 @@ if (sequenceType.kind != TypeKind.arrayType) {
 panic("For loop must iterate over an array");
 }
  // unknown
-const innerScope: Map<string,class_ParsedType> = cloneScope(scope);
-innerScope.set(stmt.identifier!, sequenceType.ref!);
-inferBlock(stmt.block, innerScope);
+const innerScope: Map<string,class_IdentifierOrigin> = cloneScope(scope);
+innerScope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Field, sequenceType.ref!, owner, true));
+inferBlock(stmt.block, innerScope, owner);
 } else if (stmt.kind == StatementKind.IfStatement) {
 inferExpressionType(stmt.value!, scope);
-inferBlock(stmt.block, scope);
+inferBlock(stmt.block, scope, owner);
 for (const ei of stmt.elseIf) {
 inferExpressionType(ei.value, scope);
-inferBlock(ei.block, scope);
+inferBlock(ei.block, scope, owner);
 }
-inferBlock(stmt.elseBlock!, scope);
+inferBlock(stmt.elseBlock!, scope, owner);
 } else if (stmt.kind == StatementKind.ExpressionStatement) {
 inferExpressionType(stmt.value!, scope);
 } else if (stmt.kind == StatementKind.AssignStatement) {
@@ -119,7 +144,7 @@ return flattenObjectType(type.ref!);
 }
 return type;
 }
-export function inferPublicExpressionType(expr:class_Expression,scope:Map<string,class_ParsedType>):class_ParsedType {
+export function inferPublicExpressionType(expr:class_Expression,scope:Map<string,class_IdentifierOrigin>):class_ParsedType {
 if (expr.kind == ExpressionKind.IntConstant) {
 return ParsedType(TypeKind.intType, null, null);
 } else if (expr.kind == ExpressionKind.StringConstant) {
@@ -129,12 +154,13 @@ return ParsedType(TypeKind.boolType, null, null);
 }
 return ParsedType(TypeKind.unknownType, null, null);
 }
-export function inferExpressionType(expr:class_Expression,scope:Map<string,class_ParsedType>):class_ParsedType {
+export function inferExpressionType(expr:class_Expression,scope:Map<string,class_IdentifierOrigin>):class_ParsedType {
  // nullable<object<ParsedType>>
 let returnType: class_ParsedType | null = null;
 if (expr.kind == ExpressionKind.Identifier) {
 if (scope.has(expr.value!)) {
-expr.type = scope.get(expr.value!)!;
+expr.origin = scope.get(expr.value!)!;
+expr.type = expr.origin!.type;
 } else {
 panic("Could not resolve identifier " + expr.value);
 }
@@ -288,13 +314,13 @@ return ParsedType(TypeKind.functionType, null, stmt);
 panic("Field " + identifier + " not found in class " + classDefinition.identifier);
 return ParsedType(TypeKind.invalidType, null, null);
 }
-export function inferBlock(block:class_Statement[],outerScope:Map<string,class_ParsedType>):Map<string,class_ParsedType> {
+export function inferBlock(block:class_Statement[],outerScope:Map<string,class_IdentifierOrigin>,owner:class_Statement):Map<string,class_IdentifierOrigin> {
  // unknown
-const scope: Map<string,class_ParsedType> = getBlockDefinitions(block, outerScope);
-applyScopeToBlock(block, scope);
+const scope: Map<string,class_IdentifierOrigin> = getBlockDefinitions(block, outerScope);
+applyScopeToBlock(block, scope, owner);
 return scope;
 }
-export function inferClassFunctionInterface(scope:Map<string,class_ParsedType>,stmt:class_Statement):void {
+export function inferClassFunctionInterface(scope:Map<string,class_IdentifierOrigin>,stmt:class_Statement):void {
 resolveType(stmt.type, scope);
 for (const arg of stmt.defnArguments) {
 resolveType(arg.type, scope);
@@ -303,11 +329,11 @@ if (stmt.kind == StatementKind.ClassStatement) {
 inferPublicInterface(stmt.block, scope);
 }
 }
-export function resolveType(type:class_ParsedType,scope:Map<string,class_ParsedType>):void {
+export function resolveType(type:class_ParsedType,scope:Map<string,class_IdentifierOrigin>):void {
 if (type.kind == TypeKind.objectType) {
 if (scope.has(type.identifier!)) {
  // object<ParsedType>
-const resolvedType: class_ParsedType = scope.get(type.identifier!)!;
+const resolvedType: class_ParsedType = scope.get(type.identifier!)!.type;
 if (resolvedType.kind == TypeKind.classType || resolvedType.kind == TypeKind.enumDefinitionType) {
 type.stmt = resolvedType.stmt;
 } else {
