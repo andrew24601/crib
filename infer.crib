@@ -6,7 +6,7 @@ function cloneScope(scope: ParsedType[string]?): ParsedType[string]
         return newScope
     end
     for key of scope.keys()
-        newScope.set(key, value: scope.get(key)!)
+        newScope[key] := scope[key]!
     end
     return newScope
 end 
@@ -16,11 +16,11 @@ function getBlockDefinitions(block: Statement[], outerScope: ParsedType[string]?
 
     for stmt of block
         if stmt.kind = StatementKind.FunctionStatement
-            scope.set(key: stmt.identifier!, value: ParsedType(kind: TypeKind.functionType, ref: nil, stmt))
+            scope[stmt.identifier!] := ParsedType(kind: TypeKind.functionType, ref: nil, stmt)
         elseif stmt.kind = StatementKind.ClassStatement
-            scope.set(key: stmt.identifier!, value: ParsedType(kind: TypeKind.classType, ref: nil, stmt))
+            scope[stmt.identifier!] := ParsedType(kind: TypeKind.classType, ref: nil, stmt)
         elseif stmt.kind = StatementKind.EnumStatement
-            scope.set(key: stmt.identifier!, value: ParsedType(kind: TypeKind.enumDefinitionType, ref: nil, stmt))
+            scope[stmt.identifier!] := ParsedType(kind: TypeKind.enumDefinitionType, ref: nil, stmt)
         end
     end
 
@@ -63,7 +63,7 @@ public function applyScopeToBlock(block: Statement[], scope: ParsedType[string])
         if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
             const innerScope := cloneScope(scope)
             for arg of stmt.defnArguments
-                innerScope.set(key: arg.identifier, value: arg.type)
+                innerScope[arg.identifier] := arg.type
             end
             inferBlock(block: stmt.block, scope: innerScope)
         elseif stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
@@ -78,7 +78,7 @@ public function applyScopeToBlock(block: Statement[], scope: ParsedType[string])
             else
                 resolveType(type: stmt.type, scope)
             end
-            scope.set(key: stmt.identifier!, value: stmt.type)
+            scope[stmt.identifier!] := stmt.type
         elseif stmt.kind = StatementKind.ReturnStatement
             if stmt.value <> nil
                 stmt.value.type := inferExpressionType(expr: stmt.value!, scope)
@@ -96,7 +96,7 @@ public function applyScopeToBlock(block: Statement[], scope: ParsedType[string])
                 panic(message: "For loop must iterate over an array")
             end
             const innerScope := cloneScope(scope)
-            innerScope.set(key: stmt.identifier!, value: sequenceType.ref!)
+            innerScope[stmt.identifier!] := sequenceType.ref!
             inferBlock(block: stmt.block, scope: innerScope)
         elseif stmt.kind = StatementKind.IfStatement
             inferExpressionType(expr: stmt.value!, scope)
@@ -137,7 +137,7 @@ function inferExpressionType(expr: Expression, scope: ParsedType[string]): Parse
     let returnType: ParsedType?
     if expr.kind = ExpressionKind.Identifier
         if scope.has(key: expr.value!)
-            expr.type := scope.get(key: expr.value!)!
+            expr.type := scope[expr.value!]!
         else
             panic(message: "Could not resolve identifier " + expr.value)
         end
@@ -245,7 +245,7 @@ function inferExpressionType(expr: Expression, scope: ParsedType[string]): Parse
         expr.type := ParsedType(kind: TypeKind.arrayInitType, ref: nil, stmt: nil)
     elseif expr.kind = ExpressionKind.Index
         const type := flattenObjectType(type: inferExpressionType(expr: expr.left!, scope))
-        if type.kind = TypeKind.arrayType
+        if type.kind = TypeKind.arrayType or type.kind = TypeKind.mapType
             expr.type := type.ref!
         elseif type.kind = TypeKind.stringType
             expr.type := ParsedType(kind: TypeKind.intType, ref: nil, stmt: nil)
@@ -304,7 +304,7 @@ end
 function resolveType(type: ParsedType, scope: ParsedType[string])
     if type.kind = TypeKind.objectType
         if scope.has(key: type.identifier!)
-            const resolvedType := scope.get(key: type.identifier!)!
+            const resolvedType := scope[type.identifier!]!
             if resolvedType.kind = TypeKind.classType or resolvedType.kind = TypeKind.enumDefinitionType
                 type.stmt := resolvedType.stmt
             else

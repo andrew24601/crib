@@ -252,7 +252,7 @@ expr.type = ParsedType(TypeKind.arrayInitType, null, null);
 } else if (expr.kind == ExpressionKind.Index) {
  // object<ParsedType>
 const type: class_ParsedType = flattenObjectType(inferExpressionType(expr.left!, scope));
-if (type.kind == TypeKind.arrayType) {
+if (type.kind == TypeKind.arrayType || type.kind == TypeKind.mapType) {
 expr.type = type.ref!;
 } else if (type.kind == TypeKind.stringType) {
 expr.type = ParsedType(TypeKind.intType, null, null);

@@ -83,7 +83,11 @@ generateBlock(stmt.block, false, false);
 _o.result.push("}");
 } else if (stmt.kind == StatementKind.AssignStatement) {
 if (stmt.lhs!.kind == ExpressionKind.Index) {
+if (effectiveType(stmt.lhs!.left!.type).kind == TypeKind.mapType) {
+_o.result.push(generateJSExpression(stmt.lhs!.left!) + ".set(" + generateJSExpression(stmt.lhs!.indexes[0]) + ", " + generateJSExpression(stmt.value!) + ");");
+} else {
 _o.result.push(generateJSExpression(stmt.lhs!.left!) + "[" + generateJSExpression(stmt.lhs!.indexes[0]) + "] = " + generateJSExpression(stmt.value!) + ";");
+}
 } else {
 _o.result.push(generateJSExpression(stmt.lhs!) + " = " + generateJSExpression(stmt.value!) + ";");
 }
@@ -209,6 +213,8 @@ return "[]";
 }
 if (effectiveType(expr.left!.type).kind == TypeKind.stringType) {
 return generateJSExpression(expr.left!) + ".charCodeAt(" + generateArguments(expr.indexes) + ")";
+} else if (effectiveType(expr.left!.type).kind == TypeKind.mapType) {
+return generateJSExpression(expr.left!) + ".get(" + generateArguments(expr.indexes) + ")";
 } else if (effectiveType(expr.left!.type).kind == TypeKind.arrayType) {
 return generateJSExpression(expr.left!) + "[" + generateArguments(expr.indexes) + "]";
 } else {
@@ -219,7 +225,7 @@ return "*expression*";
 }
 }
 export function effectiveType(type:class_ParsedType):class_ParsedType {
-if (type.kind == TypeKind.pointerType) {
+if (type.kind == TypeKind.pointerType || type.kind == TypeKind.nullableType) {
 return effectiveType(type.ref!);
 }
 return type;

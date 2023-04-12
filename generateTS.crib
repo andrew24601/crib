@@ -85,7 +85,11 @@ class generateTS(block:Statement[]^)
                 result.push(value: "}")
             elseif stmt.kind = StatementKind.AssignStatement
                 if stmt.lhs!.kind = ExpressionKind.Index
-                    result.push(value: generateJSExpression(expr: stmt.lhs!.left!) + "[" + generateJSExpression(expr: stmt.lhs!.indexes[0]) + "] = " + generateJSExpression(expr: stmt.value!) + ";")
+                    if effectiveType(type: stmt.lhs!.left!.type).kind = TypeKind.mapType
+                        result.push(value: generateJSExpression(expr: stmt.lhs!.left!) + ".set(" + generateJSExpression(expr: stmt.lhs!.indexes[0]) + ", " + generateJSExpression(expr: stmt.value!) + ");")
+                    else
+                        result.push(value: generateJSExpression(expr: stmt.lhs!.left!) + "[" + generateJSExpression(expr: stmt.lhs!.indexes[0]) + "] = " + generateJSExpression(expr: stmt.value!) + ";")
+                    end
                 else
                     result.push(value: generateJSExpression(expr: stmt.lhs!) + " = " + generateJSExpression(expr: stmt.value!) + ";")
                 end
@@ -223,6 +227,8 @@ function generateJSExpression(expr: Expression^):string
         end
         if effectiveType(type: expr.left!.type).kind = TypeKind.stringType
             return generateJSExpression(expr: expr.left!) + ".charCodeAt(" + generateArguments(args: expr.indexes) + ")"
+        elseif effectiveType(type: expr.left!.type).kind = TypeKind.mapType
+            return generateJSExpression(expr: expr.left!) + ".get(" + generateArguments(args: expr.indexes) + ")"
         elseif effectiveType(type: expr.left!.type).kind = TypeKind.arrayType
             return generateJSExpression(expr: expr.left!) + "[" + generateArguments(args: expr.indexes) + "]"
         else
@@ -234,7 +240,7 @@ function generateJSExpression(expr: Expression^):string
 end
 
 function effectiveType(type: ParsedType) : ParsedType
-    if type.kind = TypeKind.pointerType
+    if type.kind = TypeKind.pointerType or type.kind = TypeKind.nullableType
         return effectiveType(type: type.ref!)
     end
     return type
