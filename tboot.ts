@@ -1,4 +1,3 @@
-import { descopeCode } from "./bootstrap"
 import { Tokeniser } from "./tokeniser"
 import { Parser, class_Statement, StatementKind, Statement, ParsedType, TypeKind, class_ParsedType } from "./parser"
 import { readFileSync, writeFileSync } from "fs";
@@ -135,8 +134,6 @@ for (const m of modules.values()) {
     inferBlock(m.block, m.scope!, moduleStatement);
 
 //const validator = ResolveTypes(block, initialScope);
-
-    descopeCode([], m.block, null, false)
 
     const generated = generateTS(m.block);
 

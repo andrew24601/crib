@@ -2,6 +2,8 @@ import { __index_get, __index_set, __slice, panic } from "./runtime"
 import { generateTSImport, importScope } from "./tboot"
 // import goes here
 import { class_Statement, Statement, StatementKind, class_ParsedType, ParsedType, ExpressionKind, TypeKind, class_Expression, Expression, class_DefnArgument, DefnArgument} from "./parser"
+// import goes here
+import { IdentifierOriginKind} from "./infer"
 export function generateTS(block:class_Statement[]) {
 const _o = {} as class_generateTS;
  // array<string>
@@ -202,7 +204,11 @@ return expr.value!;
 } else if (expr.kind == ExpressionKind.StringConstant) {
 return expr.value!;
 } else if (expr.kind == ExpressionKind.Identifier) {
+if (expr.origin!.kind == IdentifierOriginKind.Field) {
+return "_o." + expr.value!;
+} else {
 return expr.value!;
+}
 } else if (expr.kind == ExpressionKind.Invoke) {
 return generateJSExpression(expr.left!) + "(" + generateArguments(expr.indexes) + ")";
 } else if (expr.kind == ExpressionKind.Slice) {

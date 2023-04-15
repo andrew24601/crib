@@ -120,7 +120,7 @@ panic("For loop must iterate over an array");
 }
  // unknown
 const innerScope: Map<string,class_IdentifierOrigin> = cloneScope(scope);
-innerScope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Field, sequenceType.ref!, owner, true));
+innerScope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Parameter, sequenceType.ref!, owner, true));
 inferBlock(stmt.block, innerScope, owner);
 } else if (stmt.kind == StatementKind.IfStatement) {
 inferExpressionType(stmt.value!, scope);

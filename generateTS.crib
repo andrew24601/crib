@@ -1,4 +1,5 @@
 import Statement, StatementKind, ParsedType, ExpressionKind, TypeKind, Expression, DefnArgument from ./parser
+import IdentifierOriginKind from ./infer
 
 class generateTS(block:Statement[]^)
     public const result:string[]
@@ -216,7 +217,11 @@ function generateJSExpression(expr: Expression^):string
     elseif expr.kind = ExpressionKind.StringConstant
         return expr.value!
     elseif expr.kind = ExpressionKind.Identifier
-        return expr.value!
+        if expr.origin!.kind = IdentifierOriginKind.Field
+            return "_o." +  expr.value!
+        else
+            return expr.value!
+        end
     elseif expr.kind = ExpressionKind.Invoke
         return generateJSExpression(expr: expr.left!) + "(" + generateArguments(args: expr.indexes) + ")"
     elseif expr.kind = ExpressionKind.Slice

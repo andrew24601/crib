@@ -108,7 +108,7 @@ public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[st
                 panic(message: "For loop must iterate over an array")
             end
             const innerScope := cloneScope(scope)
-            innerScope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: sequenceType.ref!, owner, isMutable: true)
+            innerScope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: sequenceType.ref!, owner, isMutable: true)
             inferBlock(block: stmt.block, scope: innerScope, owner)
         elseif stmt.kind = StatementKind.IfStatement
             inferExpressionType(expr: stmt.value!, scope)
