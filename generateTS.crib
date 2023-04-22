@@ -343,6 +343,11 @@ function generateNamedArguments(type: ParsedType, args: Expression[], argNames: 
             end
             aidx := aidx + 1
         end
+
+        if defnArguments[idx].value <> nil
+            return generateJSExpression(expr: defnArguments[idx].value!)
+        end
+
         panic(message: "missing argument " + defnArguments[idx].identifier + " in call to " + type.stmt!.identifier!)
         return ""
     end

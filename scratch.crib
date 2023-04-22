@@ -1,9 +1,12 @@
 import Token, Tokeniser from ./tokeniser
-import ParsedType from ./parser
+import ParsedType, TypeKind, Statement, StatementKind from ./parser
 
 function parser(tokeniser: Tokeniser)
     let tk: ParsedType[string]
     let items: int[]
+
+    const stmt := Statement(kind: StatementKind.LetStatement)
+    const t := ParsedType(kind: TypeKind.boolType, stmt)
 
     const lessThan10 := items.filter(where: it < 10)
 

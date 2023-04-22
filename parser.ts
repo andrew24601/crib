@@ -68,12 +68,15 @@ const _o = {} as class_DefnArgument;
 _o.identifier = identifier;
 _o.type = type;
 _o.isPublic = isPublic;
+ // nullable<object<Expression>>
+_o.value = null;
 return _o;
 }
 export interface class_DefnArgument {
 identifier:string;
 type:class_ParsedType;
 isPublic:boolean;
+value:class_Expression | null;
 }
 export function ElseIfClause(value:class_Expression,block:class_Statement[]) {
 const _o = {} as class_ElseIfClause;
@@ -366,7 +369,12 @@ const identifier: string = expectIdentifier();
 expectToken(Token.tkColon);
  // object<ParsedType>
 const type: class_ParsedType = parseType();
-return DefnArgument(identifier, type, isPublic);
+ // object<DefnArgument>
+const arg: class_DefnArgument = DefnArgument(identifier, type, isPublic);
+if (acceptToken(Token.tkAssign)) {
+arg.value = parseExpression();
+}
+return arg;
 }
 function parseDefnArguments():class_DefnArgument[] {
  // array<object<DefnArgument>>

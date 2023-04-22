@@ -325,6 +325,9 @@ return generateJSExpression(args[aidx]);
 }
 aidx = aidx + 1;
 }
+if (defnArguments[idx].value != null) {
+return generateJSExpression(defnArguments[idx].value!);
+}
 panic("missing argument " + defnArguments[idx].identifier + " in call to " + type.stmt!.identifier!);
 return "";
 }
