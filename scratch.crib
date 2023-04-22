@@ -3,4 +3,8 @@ import ParsedType from ./parser
 
 function parser(tokeniser: Tokeniser)
     let tk: ParsedType[string]
+    let items: int[]
+
+    const lessThan10 := items.filter(where: it < 10)
+
 end

@@ -210,7 +210,7 @@ return "_o." + expr.value!;
 return expr.value!;
 }
 } else if (expr.kind == ExpressionKind.Invoke) {
-return generateJSExpression(expr.left!) + "(" + generateArguments(expr.indexes) + ")";
+return generateJSExpression(expr.left!) + "(" + generateNamedArguments(expr.left!.type, expr.indexes, expr.identifiers) + ")";
 } else if (expr.kind == ExpressionKind.Slice) {
 return "__slice(" + generateJSExpression(expr.left!) + ", " + generateArguments(expr.indexes) + ")";
 } else if (expr.kind == ExpressionKind.Index) {
@@ -285,6 +285,74 @@ let idx: number = 1;
 while (idx < args.length) {
 result = result + "," + generateDefnArgument(args[idx]);
 idx = idx + 1;
+}
+return result;
+}
+export function generateNamedArguments(type:class_ParsedType,args:class_Expression[],argNames:string[]):string {
+if (type.kind != TypeKind.functionType && type.kind != TypeKind.classType) {
+panic("not a function type");
+}
+ // array<object<DefnArgument>>
+const defnArguments: class_DefnArgument[] = type.stmt!.defnArguments;
+if (defnArguments.length == 0) {
+return "";
+}
+function generateClosureParams(args:class_DefnArgument[]):string {
+if (args.length == 0) {
+return "";
+}
+ // string
+let result: string = args[0].identifier;
+ // int
+let idx: number = 1;
+while (idx < args.length) {
+result = result + "," + args[idx].identifier;
+idx = idx + 1;
+}
+return result;
+}
+function generateArg(idx:number):string {
+ // object<ParsedType>
+const argType: class_ParsedType = defnArguments[idx].type;
+ // int
+let aidx: number = 0;
+while (aidx < argNames.length) {
+if (argNames[aidx] == defnArguments[idx].identifier) {
+if (argType.kind == TypeKind.functionType) {
+return "(" + generateClosureParams(argType.stmt!.defnArguments) + ")=>" + generateJSExpression(args[aidx]);
+}
+return generateJSExpression(args[aidx]);
+}
+aidx = aidx + 1;
+}
+panic("missing argument " + defnArguments[idx].identifier + " in call to " + type.stmt!.identifier!);
+return "";
+}
+ // string
+let result: string = generateArg(0);
+ // int
+let idx: number = 1;
+while (idx < defnArguments.length) {
+result = result + ", " + generateArg(idx);
+idx = idx + 1;
+}
+ // int
+let aidx: number = 0;
+while (aidx < argNames.length) {
+ // bool
+let found: boolean = false;
+ // int
+let didx: number = 0;
+while (didx < defnArguments.length) {
+if (argNames[aidx] == defnArguments[didx].identifier) {
+found = true;
+}
+didx = didx + 1;
+}
+if (!found) {
+panic("unknown argument " + argNames[aidx] + " in call to " + type.stmt!.identifier!);
+}
+aidx = aidx + 1;
 }
 return result;
 }

@@ -11,7 +11,7 @@ export enum ExpressionKind {
 IntConstant, DoubleConstant, StringConstant, NilConstant, ArrayConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate, Invalid
 };
 export enum TypeKind {
-intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, arrayInitType, unknownType, invalidType
+intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, arrayInitType, closureType, unknownType, invalidType
 };
  // object<ParsedType>
 const sharedUnknownType: class_ParsedType = ParsedType(TypeKind.unknownType, null, null);
@@ -52,8 +52,6 @@ _o.ref = ref;
 _o.stmt = stmt;
  // nullable<string>
 _o.identifier = null;
- // array<object<ParsedType>>
-_o.parameters = [];
  // nullable<object<ParsedType>>
 _o.mapKeyRef = null;
 return _o;
@@ -63,7 +61,6 @@ kind:TypeKind;
 ref:class_ParsedType | null;
 stmt:class_Statement | null;
 identifier:string | null;
-parameters:class_ParsedType[];
 mapKeyRef:class_ParsedType | null;
 }
 export function DefnArgument(identifier:string,type:class_ParsedType,isPublic:boolean) {
@@ -166,13 +163,6 @@ type = ParsedType(TypeKind.stringType, null, null);
 } else if (tk == Token.tkIdentifier) {
 type = ParsedType(TypeKind.objectType, null, null);
 type.identifier = identifier;
-if (acceptToken(Token.tkLessThan)) {
-type.parameters.push(parseType());
-while (acceptToken(Token.tkComma)) {
-type.parameters.push(parseType());
-}
-expectToken(Token.tkGreaterThan);
-}
 }
 while (true) {
 if (acceptToken(Token.tkLeftBracket)) {

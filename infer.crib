@@ -1,8 +1,8 @@
-import Statement, StatementKind, ParsedType, TypeKind, Expression, ExpressionKind from ./parser
+import Statement, StatementKind, ParsedType, TypeKind, Expression, ExpressionKind, DefnArgument from ./parser
 
 public enum IdentifierOriginKind(Field, Parameter, Class, Enum, Function)
 
-public class IdentifierOrigin(public kind: IdentifierOriginKind, public type: ParsedType, public owner: Statement, public isMutable: bool) end
+public class IdentifierOrigin(public kind: IdentifierOriginKind, public type: ParsedType, public isMutable: bool) end
 
 function cloneScope(scope: IdentifierOrigin[string]?): IdentifierOrigin[string]
     const newScope: IdentifierOrigin[string]
@@ -20,11 +20,11 @@ function getBlockDefinitions(block: Statement[], outerScope: IdentifierOrigin[st
 
     for stmt of block
         if stmt.kind = StatementKind.FunctionStatement
-            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Function, type: ParsedType(kind: TypeKind.functionType, ref: nil, stmt), owner: stmt, isMutable: false)
+            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Function, type: ParsedType(kind: TypeKind.functionType, ref: nil, stmt), isMutable: false)
         elseif stmt.kind = StatementKind.ClassStatement
-            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Class, type: ParsedType(kind: TypeKind.classType, ref: nil, stmt), owner: stmt, isMutable: false)
+            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Class, type: ParsedType(kind: TypeKind.classType, ref: nil, stmt), isMutable: false)
         elseif stmt.kind = StatementKind.EnumStatement
-            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Enum, type: ParsedType(kind: TypeKind.enumDefinitionType, ref: nil, stmt), owner: stmt, isMutable: false)
+            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Enum, type: ParsedType(kind: TypeKind.enumDefinitionType, ref: nil, stmt), isMutable: false)
         end
     end
 
@@ -56,7 +56,7 @@ function effectiveType(type: ParsedType) : ParsedType
     return type
 end
 
-public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[string], owner: Statement)
+public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[string], forClass: bool)
     for stmt of block
         if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
             inferClassFunctionInterface(scope, stmt)
@@ -68,12 +68,12 @@ public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[st
             const innerScope := cloneScope(scope)
             for arg of stmt.defnArguments
                 if stmt.kind = StatementKind.ClassStatement and arg.isPublic
-                    innerScope[arg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: arg.type, owner: stmt, isMutable: true)
+                    innerScope[arg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: arg.type, isMutable: true)
                 else
-                    innerScope[arg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: arg.type, owner: stmt, isMutable: true)
+                    innerScope[arg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: arg.type, isMutable: true)
                 end
             end
-            inferBlock(block: stmt.block, scope: innerScope, owner: stmt)
+            inferBlock(block: stmt.block, outerScope: innerScope, forClass: stmt.kind = StatementKind.ClassStatement)
         elseif stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
             if stmt.value <> nil
                 inferExpressionType(expr: stmt.value!, scope)
@@ -86,10 +86,10 @@ public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[st
             else
                 resolveType(type: stmt.type, scope)
             end
-            if owner.kind = StatementKind.ClassStatement and stmt.isPublic
-                scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: stmt.type, owner, isMutable: stmt.kind = StatementKind.LetStatement)
+            if forClass and stmt.isPublic
+                scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: stmt.type, isMutable: stmt.kind = StatementKind.LetStatement)
             else
-                scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: stmt.type, owner, isMutable: stmt.kind = StatementKind.LetStatement)
+                scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: stmt.type, isMutable: stmt.kind = StatementKind.LetStatement)
             end
         elseif stmt.kind = StatementKind.ReturnStatement
             if stmt.value <> nil
@@ -97,9 +97,9 @@ public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[st
             end
         elseif stmt.kind = StatementKind.WhileStatement
             inferExpressionType(expr: stmt.value!, scope)
-            inferBlock(block: stmt.block, scope, owner)
+            inferBlock(block: stmt.block, outerScope: scope, forClass)
         elseif stmt.kind = StatementKind.RepeatStatement
-            inferBlock(block: stmt.block, scope, owner)
+            inferBlock(block: stmt.block, outerScope: scope, forClass)
             inferExpressionType(expr: stmt.value!, scope)
         elseif stmt.kind = StatementKind.ForStatement
             inferExpressionType(expr: stmt.value!, scope)
@@ -108,16 +108,16 @@ public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[st
                 panic(message: "For loop must iterate over an array")
             end
             const innerScope := cloneScope(scope)
-            innerScope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: sequenceType.ref!, owner, isMutable: true)
-            inferBlock(block: stmt.block, scope: innerScope, owner)
+            innerScope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: sequenceType.ref!, isMutable: true)
+            inferBlock(block: stmt.block, outerScope: innerScope, forClass)
         elseif stmt.kind = StatementKind.IfStatement
             inferExpressionType(expr: stmt.value!, scope)
-            inferBlock(block: stmt.block, scope, owner)
+            inferBlock(block: stmt.block, outerScope: scope, forClass)
             for ei of stmt.elseIf
                 inferExpressionType(expr: ei.value, scope)
-                inferBlock(block: ei.block, scope, owner)
+                inferBlock(block: ei.block, outerScope: scope, forClass)
             end
-            inferBlock(block: stmt.elseBlock!, scope, owner)
+            inferBlock(block: stmt.elseBlock!, outerScope: scope, forClass)
         elseif stmt.kind = StatementKind.ExpressionStatement
             inferExpressionType(expr: stmt.value!, scope)
         elseif stmt.kind = StatementKind.AssignStatement
@@ -194,22 +194,34 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string]):
         elseif type.kind = TypeKind.arrayType and expr.value = "push"
             const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
             fakeStmt.type := ParsedType(kind: TypeKind.voidType, ref: nil, stmt: nil)
+            fakeStmt.defnArguments.push(value: DefnArgument(identifier: "value", type: type.ref!, isPublic: false))
+            expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
+        elseif type.kind = TypeKind.arrayType and expr.value = "filter"
+            const callbackTypeStmt := Statement(kind: StatementKind.FunctionStatement)
+            callbackTypeStmt.identifier := "where"
+            callbackTypeStmt.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
+            callbackTypeStmt.defnArguments.push(value: DefnArgument(identifier: "it", type: type.ref!, isPublic: false))
+            const callbackType := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: callbackTypeStmt)
+
+            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
+            fakeStmt.type := type
+            fakeStmt.identifier := "filter"
+            fakeStmt.defnArguments.push(value: DefnArgument(identifier: "where", type: callbackType, isPublic: false))
+
+            expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
+        elseif type.kind = TypeKind.arrayType and expr.value = "join"
+            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
+            fakeStmt.type := ParsedType(kind: TypeKind.stringType, ref: nil, stmt: nil)
             expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
         elseif type.kind = TypeKind.mapType and expr.value = "has"
             const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
             fakeStmt.type := ParsedType(kind: TypeKind.boolType, ref: nil, stmt: nil)
+            fakeStmt.defnArguments.push(value: DefnArgument(identifier: "key", type: type.ref!, isPublic: false))
             expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
         elseif type.kind = TypeKind.mapType and expr.value = "delete"
             const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
             fakeStmt.type := ParsedType(kind: TypeKind.voidType, ref: nil, stmt: nil)
-            expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
-        elseif type.kind = TypeKind.mapType and expr.value = "get"
-            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
-            fakeStmt.type := type.ref!
-            expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
-        elseif type.kind = TypeKind.mapType and expr.value = "set"
-            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
-            fakeStmt.type := ParsedType(kind: TypeKind.voidType, ref: nil, stmt: nil)
+            fakeStmt.defnArguments.push(value: DefnArgument(identifier: "key", type: type.ref!, isPublic: false))
             expr.type := ParsedType(kind: TypeKind.functionType, ref: nil, stmt: fakeStmt)
         elseif type.kind = TypeKind.mapType and expr.value = "keys"
             const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
@@ -239,8 +251,35 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string]):
         else
             panic(message: "Not a function or class type")
         end
-        for arg of expr.indexes
-            inferExpressionType(expr: arg, scope)
+        const argumentDefs := type.stmt!.defnArguments
+        let aidx := 0
+        while aidx < expr.indexes.length
+            const arg := expr.indexes[aidx]
+            const name := expr.identifiers[aidx]
+
+            let didx := 0
+            let found := false
+            while didx < argumentDefs.length
+                const defn := argumentDefs[didx]
+                if defn.identifier = name
+                    found := true
+
+                    if defn.type.kind = TypeKind.functionType
+                        const lambdaScope := cloneScope(scope)
+                        const scopeArgs := defn.type.stmt!.defnArguments
+                        for scopeArg of scopeArgs
+                            lambdaScope[scopeArg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type:scopeArg.type, isMutable: true) 
+                        end
+
+                        inferExpressionType(expr: arg, scope: lambdaScope)
+                    else
+                        inferExpressionType(expr: arg, scope)
+                    end
+                end
+                didx := didx + 1
+            end
+
+            aidx := aidx + 1
         end
     elseif expr.kind = ExpressionKind.Slice
         const type := flattenObjectType(type: inferExpressionType(expr: expr.left!, scope))
@@ -296,10 +335,10 @@ function getFieldType(classDefinition: Statement, identifier: string): ParsedTyp
     return ParsedType(kind: TypeKind.invalidType, ref: nil, stmt: nil)
 end
 
-public function inferBlock(block: Statement[], outerScope: IdentifierOrigin[string], owner: Statement): IdentifierOrigin[string]
+public function inferBlock(block: Statement[], outerScope: IdentifierOrigin[string], forClass: bool): IdentifierOrigin[string]
     const scope := getBlockDefinitions(block, outerScope)
 
-    applyScopeToBlock(block, scope, owner)
+    applyScopeToBlock(block, scope, forClass)
 
     return scope
 end

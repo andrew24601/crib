@@ -1,5 +1,5 @@
 import { Tokeniser } from "./tokeniser"
-import { Parser, class_Statement, StatementKind, Statement, ParsedType, TypeKind, class_ParsedType } from "./parser"
+import { Parser, class_Statement, StatementKind, Statement, ParsedType, TypeKind, class_ParsedType, DefnArgument } from "./parser"
 import { readFileSync, writeFileSync } from "fs";
 import { generateTS } from "./generateTS"
 import { getBlockDefinitions, inferPublicInterface, inferBlock,IdentifierOrigin,  IdentifierOriginKind, class_IdentifierOrigin } from "./infer"
@@ -94,12 +94,16 @@ function load(path: string) {
         const fakePanicStatement = Statement(StatementKind.FunctionStatement);
         fakePanicStatement.identifier = "panic";
         fakePanicStatement.type = ParsedType(TypeKind.voidType, null, null);
-        moduleScope.set("panic", IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(TypeKind.functionType, null, fakePanicStatement), systemModule, false));
+        fakePanicStatement.defnArguments.push(DefnArgument("message", ParsedType(TypeKind.stringType, null, null), false));
+
+        moduleScope.set("panic", IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(TypeKind.functionType, null, fakePanicStatement), false));
 
         const fakeImportStatement = Statement(StatementKind.FunctionStatement);
         fakeImportStatement.identifier = "panic";
         fakeImportStatement.type = ParsedType(TypeKind.stringType, null, null);
-        moduleScope.set("generateTSImport", IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(TypeKind.functionType, null, fakeImportStatement), systemModule, false));
+        fakeImportStatement.defnArguments.push(DefnArgument("stmt", ParsedType(TypeKind.stringType, null, null), false));
+
+        moduleScope.set("generateTSImport", IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(TypeKind.functionType, null, fakeImportStatement), false));
 
         for (const stmt of module.block) {
             if (stmt.kind === StatementKind.ImportStatement) {
@@ -131,7 +135,7 @@ load(path)
 const moduleStatement = Statement(StatementKind.ModuleStatement);
 
 for (const m of modules.values()) {
-    inferBlock(m.block, m.scope!, moduleStatement);
+    inferBlock(m.block, m.scope!, false);
 
 //const validator = ResolveTypes(block, initialScope);
 

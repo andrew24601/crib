@@ -1,22 +1,20 @@
 import { __index_get, __index_set, __slice, panic } from "./runtime"
 import { generateTSImport, importScope } from "./tboot"
 // import goes here
-import { class_Statement, Statement, StatementKind, class_ParsedType, ParsedType, TypeKind, class_Expression, Expression, ExpressionKind} from "./parser"
+import { class_Statement, Statement, StatementKind, class_ParsedType, ParsedType, TypeKind, class_Expression, Expression, ExpressionKind, class_DefnArgument, DefnArgument} from "./parser"
 export enum IdentifierOriginKind {
 Field, Parameter, Class, Enum, Function
 };
-export function IdentifierOrigin(kind:IdentifierOriginKind,type:class_ParsedType,owner:class_Statement,isMutable:boolean) {
+export function IdentifierOrigin(kind:IdentifierOriginKind,type:class_ParsedType,isMutable:boolean) {
 const _o = {} as class_IdentifierOrigin;
 _o.kind = kind;
 _o.type = type;
-_o.owner = owner;
 _o.isMutable = isMutable;
 return _o;
 }
 export interface class_IdentifierOrigin {
 kind:IdentifierOriginKind;
 type:class_ParsedType;
-owner:class_Statement;
 isMutable:boolean;
 }
 export function cloneScope(scope:Map<string,class_IdentifierOrigin> | null):Map<string,class_IdentifierOrigin> {
@@ -35,11 +33,11 @@ export function getBlockDefinitions(block:class_Statement[],outerScope:Map<strin
 const scope: Map<string,class_IdentifierOrigin> = cloneScope(outerScope);
 for (const stmt of block) {
 if (stmt.kind == StatementKind.FunctionStatement) {
-scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(TypeKind.functionType, null, stmt), stmt, false));
+scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(TypeKind.functionType, null, stmt), false));
 } else if (stmt.kind == StatementKind.ClassStatement) {
-scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Class, ParsedType(TypeKind.classType, null, stmt), stmt, false));
+scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Class, ParsedType(TypeKind.classType, null, stmt), false));
 } else if (stmt.kind == StatementKind.EnumStatement) {
-scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Enum, ParsedType(TypeKind.enumDefinitionType, null, stmt), stmt, false));
+scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Enum, ParsedType(TypeKind.enumDefinitionType, null, stmt), false));
 }
 }
 return scope;
@@ -66,7 +64,7 @@ return effectiveType(type.ref!);
 }
 return type;
 }
-export function applyScopeToBlock(block:class_Statement[],scope:Map<string,class_IdentifierOrigin>,owner:class_Statement):void {
+export function applyScopeToBlock(block:class_Statement[],scope:Map<string,class_IdentifierOrigin>,forClass:boolean):void {
 for (const stmt of block) {
 if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.FunctionStatement) {
 inferClassFunctionInterface(scope, stmt);
@@ -78,12 +76,12 @@ if (stmt.kind == StatementKind.ClassStatement || stmt.kind == StatementKind.Func
 const innerScope: Map<string,class_IdentifierOrigin> = cloneScope(scope);
 for (const arg of stmt.defnArguments) {
 if (stmt.kind == StatementKind.ClassStatement && arg.isPublic) {
-innerScope.set(arg.identifier, IdentifierOrigin(IdentifierOriginKind.Field, arg.type, stmt, true));
+innerScope.set(arg.identifier, IdentifierOrigin(IdentifierOriginKind.Field, arg.type, true));
 } else {
-innerScope.set(arg.identifier, IdentifierOrigin(IdentifierOriginKind.Parameter, arg.type, stmt, true));
+innerScope.set(arg.identifier, IdentifierOrigin(IdentifierOriginKind.Parameter, arg.type, true));
 }
 }
-inferBlock(stmt.block, innerScope, stmt);
+inferBlock(stmt.block, innerScope, stmt.kind == StatementKind.ClassStatement);
 } else if (stmt.kind == StatementKind.LetStatement || stmt.kind == StatementKind.ConstStatement) {
 if (stmt.value != null) {
 inferExpressionType(stmt.value!, scope);
@@ -96,10 +94,10 @@ panic("Could not infer type of " + stmt.identifier!);
 } else {
 resolveType(stmt.type, scope);
 }
-if (owner.kind == StatementKind.ClassStatement && stmt.isPublic) {
-scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Field, stmt.type, owner, stmt.kind == StatementKind.LetStatement));
+if (forClass && stmt.isPublic) {
+scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Field, stmt.type, stmt.kind == StatementKind.LetStatement));
 } else {
-scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Parameter, stmt.type, owner, stmt.kind == StatementKind.LetStatement));
+scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Parameter, stmt.type, stmt.kind == StatementKind.LetStatement));
 }
 } else if (stmt.kind == StatementKind.ReturnStatement) {
 if (stmt.value != null) {
@@ -107,9 +105,9 @@ stmt.value.type = inferExpressionType(stmt.value!, scope);
 }
 } else if (stmt.kind == StatementKind.WhileStatement) {
 inferExpressionType(stmt.value!, scope);
-inferBlock(stmt.block, scope, owner);
+inferBlock(stmt.block, scope, forClass);
 } else if (stmt.kind == StatementKind.RepeatStatement) {
-inferBlock(stmt.block, scope, owner);
+inferBlock(stmt.block, scope, forClass);
 inferExpressionType(stmt.value!, scope);
 } else if (stmt.kind == StatementKind.ForStatement) {
 inferExpressionType(stmt.value!, scope);
@@ -120,16 +118,16 @@ panic("For loop must iterate over an array");
 }
  // unknown
 const innerScope: Map<string,class_IdentifierOrigin> = cloneScope(scope);
-innerScope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Parameter, sequenceType.ref!, owner, true));
-inferBlock(stmt.block, innerScope, owner);
+innerScope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Parameter, sequenceType.ref!, true));
+inferBlock(stmt.block, innerScope, forClass);
 } else if (stmt.kind == StatementKind.IfStatement) {
 inferExpressionType(stmt.value!, scope);
-inferBlock(stmt.block, scope, owner);
+inferBlock(stmt.block, scope, forClass);
 for (const ei of stmt.elseIf) {
 inferExpressionType(ei.value, scope);
-inferBlock(ei.block, scope, owner);
+inferBlock(ei.block, scope, forClass);
 }
-inferBlock(stmt.elseBlock!, scope, owner);
+inferBlock(stmt.elseBlock!, scope, forClass);
 } else if (stmt.kind == StatementKind.ExpressionStatement) {
 inferExpressionType(stmt.value!, scope);
 } else if (stmt.kind == StatementKind.AssignStatement) {
@@ -206,26 +204,38 @@ expr.type = ParsedType(TypeKind.intType, null, null);
  // object<Statement>
 const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
 fakeStmt.type = ParsedType(TypeKind.voidType, null, null);
+fakeStmt.defnArguments.push(DefnArgument("value", type.ref!, false));
+expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
+} else if (type.kind == TypeKind.arrayType && expr.value == "filter") {
+ // object<Statement>
+const callbackTypeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
+callbackTypeStmt.identifier = "where";
+callbackTypeStmt.type = ParsedType(TypeKind.boolType, null, null);
+callbackTypeStmt.defnArguments.push(DefnArgument("it", type.ref!, false));
+ // object<ParsedType>
+const callbackType: class_ParsedType = ParsedType(TypeKind.functionType, null, callbackTypeStmt);
+ // object<Statement>
+const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
+fakeStmt.type = type;
+fakeStmt.identifier = "filter";
+fakeStmt.defnArguments.push(DefnArgument("where", callbackType, false));
+expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
+} else if (type.kind == TypeKind.arrayType && expr.value == "join") {
+ // object<Statement>
+const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
+fakeStmt.type = ParsedType(TypeKind.stringType, null, null);
 expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
 } else if (type.kind == TypeKind.mapType && expr.value == "has") {
  // object<Statement>
 const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
 fakeStmt.type = ParsedType(TypeKind.boolType, null, null);
+fakeStmt.defnArguments.push(DefnArgument("key", type.ref!, false));
 expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
 } else if (type.kind == TypeKind.mapType && expr.value == "delete") {
  // object<Statement>
 const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
 fakeStmt.type = ParsedType(TypeKind.voidType, null, null);
-expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
-} else if (type.kind == TypeKind.mapType && expr.value == "get") {
- // object<Statement>
-const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
-fakeStmt.type = type.ref!;
-expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
-} else if (type.kind == TypeKind.mapType && expr.value == "set") {
- // object<Statement>
-const fakeStmt: class_Statement = Statement(StatementKind.FunctionStatement);
-fakeStmt.type = ParsedType(TypeKind.voidType, null, null);
+fakeStmt.defnArguments.push(DefnArgument("key", type.ref!, false));
 expr.type = ParsedType(TypeKind.functionType, null, fakeStmt);
 } else if (type.kind == TypeKind.mapType && expr.value == "keys") {
  // object<Statement>
@@ -257,8 +267,40 @@ expr.type = returnType;
 } else {
 panic("Not a function or class type");
 }
-for (const arg of expr.indexes) {
+ // array<object<DefnArgument>>
+const argumentDefs: class_DefnArgument[] = type.stmt!.defnArguments;
+ // int
+let aidx: number = 0;
+while (aidx < expr.indexes.length) {
+ // object<Expression>
+const arg: class_Expression = expr.indexes[aidx];
+ // string
+const name: string = expr.identifiers[aidx];
+ // int
+let didx: number = 0;
+ // bool
+let found: boolean = false;
+while (didx < argumentDefs.length) {
+ // object<DefnArgument>
+const defn: class_DefnArgument = argumentDefs[didx];
+if (defn.identifier == name) {
+found = true;
+if (defn.type.kind == TypeKind.functionType) {
+ // unknown
+const lambdaScope: Map<string,class_IdentifierOrigin> = cloneScope(scope);
+ // array<object<DefnArgument>>
+const scopeArgs: class_DefnArgument[] = defn.type.stmt!.defnArguments;
+for (const scopeArg of scopeArgs) {
+lambdaScope.set(scopeArg.identifier, IdentifierOrigin(IdentifierOriginKind.Parameter, scopeArg.type, true));
+}
+inferExpressionType(arg, lambdaScope);
+} else {
 inferExpressionType(arg, scope);
+}
+}
+didx = didx + 1;
+}
+aidx = aidx + 1;
 }
 } else if (expr.kind == ExpressionKind.Slice) {
  // object<ParsedType>
@@ -314,10 +356,10 @@ return ParsedType(TypeKind.functionType, null, stmt);
 panic("Field " + identifier + " not found in class " + classDefinition.identifier);
 return ParsedType(TypeKind.invalidType, null, null);
 }
-export function inferBlock(block:class_Statement[],outerScope:Map<string,class_IdentifierOrigin>,owner:class_Statement):Map<string,class_IdentifierOrigin> {
+export function inferBlock(block:class_Statement[],outerScope:Map<string,class_IdentifierOrigin>,forClass:boolean):Map<string,class_IdentifierOrigin> {
  // unknown
 const scope: Map<string,class_IdentifierOrigin> = getBlockDefinitions(block, outerScope);
-applyScopeToBlock(block, scope, owner);
+applyScopeToBlock(block, scope, forClass);
 return scope;
 }
 export function inferClassFunctionInterface(scope:Map<string,class_IdentifierOrigin>,stmt:class_Statement):void {

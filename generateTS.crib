@@ -223,7 +223,7 @@ function generateJSExpression(expr: Expression^):string
             return expr.value!
         end
     elseif expr.kind = ExpressionKind.Invoke
-        return generateJSExpression(expr: expr.left!) + "(" + generateArguments(args: expr.indexes) + ")"
+        return generateJSExpression(expr: expr.left!) + "(" + generateNamedArguments(type: expr.left!.type, args: expr.indexes, argNames: expr.identifiers) + ")"
     elseif expr.kind = ExpressionKind.Slice
         return "__slice(" + generateJSExpression(expr: expr.left!) + ", " + generateArguments(args: expr.indexes) + ")"
     elseif expr.kind = ExpressionKind.Index
@@ -303,6 +303,74 @@ function generateDefnArguments(args: DefnArgument[]^): string
         result := result + "," + generateDefnArgument(arg: args[idx])
         idx := idx + 1
     end
+    return result
+end
+
+function generateNamedArguments(type: ParsedType, args: Expression[], argNames: string[]): string
+    if type.kind <> TypeKind.functionType and type.kind <> TypeKind.classType 
+        panic(message: "not a function type")
+    end
+    const defnArguments := type.stmt!.defnArguments
+
+    if defnArguments.length = 0
+        return ""
+    end
+
+    function generateClosureParams(args: DefnArgument[]^): string
+        if args.length = 0
+            return ""
+        end
+
+        let result := args[0].identifier
+        let idx := 1
+        while idx < args.length
+            result := result + "," + args[idx].identifier
+            idx := idx + 1
+        end
+        return result
+    end
+
+    function generateArg(idx: int): string
+        const argType := defnArguments[idx].type
+        let aidx := 0
+        while aidx < argNames.length
+            if argNames[aidx] = defnArguments[idx].identifier
+                if argType.kind = TypeKind.functionType
+                    return "(" + generateClosureParams(args: argType.stmt!.defnArguments) + ")=>" + generateJSExpression(expr: args[aidx])
+                end
+
+                return generateJSExpression(expr: args[aidx])
+            end
+            aidx := aidx + 1
+        end
+        panic(message: "missing argument " + defnArguments[idx].identifier + " in call to " + type.stmt!.identifier!)
+        return ""
+    end
+
+    let result := generateArg(idx: 0)
+
+    let idx := 1
+    while idx < defnArguments.length
+        result := result + ", " + generateArg(idx: idx)
+        idx := idx + 1
+    end
+
+    let aidx := 0
+    while aidx < argNames.length
+        let found := false
+        let didx := 0
+        while didx < defnArguments.length
+            if argNames[aidx] = defnArguments[didx].identifier
+                found := true
+            end
+            didx := didx + 1
+        end
+        if not found
+            panic(message: "unknown argument " + argNames[aidx] + " in call to " + type.stmt!.identifier!)
+        end
+        aidx := aidx + 1
+    end
+
     return result
 end
 

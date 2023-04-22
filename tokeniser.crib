@@ -5,6 +5,7 @@ public enum Token(tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant,
     tkImport, tkFrom,
     tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang,
     tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals,
+    tkLeftBrace, tkRightBrace,
     tkEOF, tkInvalid)
 
 function isWhitespace(ch: int): bool
@@ -169,6 +170,10 @@ public class Tokeniser(text: string^)
             match := Token.tkRightBracket
         elseif ch = 61
             match := Token.tkEquals
+        elseif ch = 123
+            match := Token.tkLeftBrace
+        elseif ch = 125
+            match := Token.tkRightBrace
         elseif ch = 38
             match := Token.tkAmpersand
         elseif ch = 46

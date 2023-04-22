@@ -7,4 +7,8 @@ import { class_ParsedType, ParsedType} from "./parser"
 export function parser(tokeniser:class_Tokeniser):void {
  // unknown
 let tk: Map<string,class_ParsedType> = new Map<string,class_ParsedType>();
+ // array<int>
+let items: number[] = [];
+ // array<int>
+const lessThan10: number[] = items.filter((it)=>it < 10);
 }

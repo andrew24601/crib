@@ -8,7 +8,7 @@ public enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConst
     LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate,
     Invalid)
 
-public enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, arrayInitType, unknownType, invalidType)
+public enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, arrayInitType, closureType, unknownType, invalidType)
 
 const sharedUnknownType := ParsedType(kind: TypeKind.unknownType, ref: nil, stmt: nil)
 
@@ -23,7 +23,6 @@ end
 
 public class ParsedType(public kind: TypeKind, public ref: ParsedType?, public stmt: Statement?)
     public let identifier: string?
-    public let parameters: ParsedType[]
     public let mapKeyRef: ParsedType?
 end
 
@@ -59,7 +58,7 @@ class Parser(tokeniser: Tokeniser)
     function expectToken(expected: Token): string
         const tk := tokeniser.nextToken()
         if tk <> expected
-            panic(text: "expected " + tokeniser.line)
+            panic(message: "expected " + tokeniser.line)
         end
         return tokeniser.value()
     end
@@ -83,13 +82,6 @@ class Parser(tokeniser: Tokeniser)
         elseif tk = Token.tkIdentifier
             type := ParsedType(kind: TypeKind.objectType, ref: nil, stmt: nil)
             type.identifier := identifier
-            if acceptToken(token: Token.tkLessThan)
-                type.parameters.push(value: parseType())
-                while acceptToken(token: Token.tkComma)
-                    type.parameters.push(value: parseType())
-                end
-                expectToken(expected: Token.tkGreaterThan)
-            end
         end
         while true
             if acceptToken(token: Token.tkLeftBracket)
