@@ -52,6 +52,14 @@ public class Tokeniser(text: string^)
         return text[tokenStart..<pos]
     end
 
+    public function start(): int
+        return tokenStart
+    end
+
+    public function tokenLength(): int
+        return pos - tokenStart
+    end
+
     function parseNextToken(): Token
         let ident: string?
     

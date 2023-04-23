@@ -28,7 +28,7 @@ let pos: number = 0;
 let tokenStart: number = 0;
  // bool
 let hasPutback: boolean = false;
- // nullable<object<Token>>
+ // nullable<unknown>
 let lastToken: Token | null = null;
  // int
 _o.line = 1;
@@ -49,6 +49,14 @@ function value():string {
 return __slice(text, tokenStart, pos);
 }
 _o.value = value;
+function start():number {
+return tokenStart;
+}
+_o.start = start;
+function tokenLength():number {
+return pos - tokenStart;
+}
+_o.tokenLength = tokenLength;
 function parseNextToken():Token {
  // nullable<string>
 let ident: string | null = null;
@@ -229,4 +237,6 @@ line:number;
 nextToken():Token;
 putback():void;
 value():string;
+start():number;
+tokenLength():number;
 }

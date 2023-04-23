@@ -14,8 +14,8 @@ export enum TypeKind {
 intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, arrayInitType, closureType, unknownType, invalidType
 };
  // object<ParsedType>
-const sharedUnknownType: class_ParsedType = ParsedType(TypeKind.unknownType, null, null);
-export function Expression(kind:ExpressionKind,left:class_Expression | null,right:class_Expression | null) {
+const sharedUnknownType: class_ParsedType = ParsedType(16, null, null);
+export function Expression(kind:ExpressionKind,left:class_Expression | null,right:class_Expression | null,tokeniser:class_Tokeniser | null) {
 const _o = {} as class_Expression;
 _o.kind = kind;
 _o.left = left;
@@ -30,8 +30,17 @@ _o.identifiers = [];
 _o.type = sharedUnknownType;
  // int
 _o.line = 0;
+ // int
+_o.tokenPos = 0;
+ // int
+_o.tokenLength = 0;
  // nullable<object<IdentifierOrigin>>
 _o.origin = null;
+if (tokeniser != null) {
+_o.line = tokeniser.line;
+_o.tokenPos = tokeniser.start();
+_o.tokenLength = tokeniser.tokenLength();
+}
 return _o;
 }
 export interface class_Expression {
@@ -43,6 +52,8 @@ indexes:class_Expression[];
 identifiers:string[];
 type:class_ParsedType;
 line:number;
+tokenPos:number;
+tokenLength:number;
 origin:class_IdentifierOrigin | null;
 }
 export function ParsedType(kind:TypeKind,ref:class_ParsedType | null,stmt:class_Statement | null) {
@@ -129,7 +140,7 @@ isPublic:boolean;
 export function Parser(tokeniser:class_Tokeniser) {
 const _o = {} as class_Parser;
 function acceptToken(token:Token):boolean {
- // object<Token>
+ // unknown
 const tk: Token = tokeniser.nextToken();
 if (tk == token) {
 return true;
@@ -138,7 +149,7 @@ tokeniser.putback();
 return false;
 }
 function expectToken(expected:Token):string {
- // object<Token>
+ // unknown
 const tk: Token = tokeniser.nextToken();
 if (tk != expected) {
 panic("expected " + tokeniser.line);
@@ -146,40 +157,40 @@ panic("expected " + tokeniser.line);
 return tokeniser.value();
 }
 function expectIdentifier():string {
-return expectToken(Token.tkIdentifier);
+return expectToken(0);
 }
 function parseType():class_ParsedType {
  // bool
 let reference: boolean = false;
- // object<Token>
+ // unknown
 const tk: Token = tokeniser.nextToken();
  // object<ParsedType>
 let type: class_ParsedType = sharedUnknownType;
  // string
 const identifier: string = tokeniser.value();
-if (tk == Token.tkInt) {
-type = ParsedType(TypeKind.intType, null, null);
-} else if (tk == Token.tkBool) {
-type = ParsedType(TypeKind.boolType, null, null);
-} else if (tk == Token.tkString) {
-type = ParsedType(TypeKind.stringType, null, null);
-} else if (tk == Token.tkIdentifier) {
-type = ParsedType(TypeKind.objectType, null, null);
+if (tk == 30) {
+type = ParsedType(0, null, null);
+} else if (tk == 32) {
+type = ParsedType(2, null, null);
+} else if (tk == 33) {
+type = ParsedType(3, null, null);
+} else if (tk == 0) {
+type = ParsedType(4, null, null);
 type.identifier = identifier;
 }
 while (true) {
-if (acceptToken(Token.tkLeftBracket)) {
-if (acceptToken(Token.tkRightBracket)) {
-type = ParsedType(TypeKind.arrayType, type, null);
+if (acceptToken(12)) {
+if (acceptToken(13)) {
+type = ParsedType(5, type, null);
 } else {
-type = ParsedType(TypeKind.mapType, type, null);
+type = ParsedType(6, type, null);
 type.mapKeyRef = parseType();
-expectToken(Token.tkRightBracket);
+expectToken(13);
 }
-} else if (acceptToken(Token.tkCaret)) {
-type = ParsedType(TypeKind.pointerType, type, null);
-} else if (acceptToken(Token.tkQuestionMark)) {
-type = ParsedType(TypeKind.nullableType, type, null);
+} else if (acceptToken(14)) {
+type = ParsedType(8, type, null);
+} else if (acceptToken(46)) {
+type = ParsedType(7, type, null);
 } else {
 return type;
 }
@@ -187,7 +198,7 @@ return type;
 return type;
 }
 function parseStatement():class_Statement | null {
- // object<Token>
+ // unknown
 let tk: Token = tokeniser.nextToken();
  // nullable<object<Statement>>
 let stmt: class_Statement | null = null;
@@ -201,132 +212,132 @@ let value: class_Expression | null = null;
 let block: class_Statement[] = [];
  // bool
 let isPublic: boolean = false;
-if (tk == Token.tkElse || tk == Token.tkElseif || tk == Token.tkEnd || tk == Token.tkUntil || tk == Token.tkEOF) {
+if (tk == 27 || tk == 28 || tk == 29 || tk == 40 || tk == 59) {
 tokeniser.putback();
 return null;
 }
-if (tk == Token.tkPublic) {
+if (tk == 44) {
 isPublic = true;
 tk = tokeniser.nextToken();
 }
-if (tk == Token.tkConst || tk == Token.tkLet) {
+if (tk == 25 || tk == 26) {
 identifier = expectIdentifier();
-if (acceptToken(Token.tkColon)) {
+if (acceptToken(21)) {
 type = parseType();
 }
-if (acceptToken(Token.tkAssign)) {
+if (acceptToken(22)) {
 value = parseExpression();
 } else {
 value = null;
 }
-if (tk == Token.tkConst) {
-stmt = Statement(StatementKind.ConstStatement);
+if (tk == 25) {
+stmt = Statement(0);
 } else {
-stmt = Statement(StatementKind.LetStatement);
+stmt = Statement(1);
 }
 stmt.value = value;
 stmt.identifier = identifier;
 stmt.type = type;
 stmt.isPublic = isPublic;
 return stmt;
-} else if (tk == Token.tkEnum) {
-stmt = Statement(StatementKind.EnumStatement);
+} else if (tk == 36) {
+stmt = Statement(2);
 stmt.identifier = expectIdentifier();
 stmt.isPublic = isPublic;
-expectToken(Token.tkLeftParen);
+expectToken(8);
 stmt.identifierList.push(expectIdentifier());
-while (acceptToken(Token.tkComma)) {
+while (acceptToken(11)) {
 stmt.identifierList.push(expectIdentifier());
 }
-expectToken(Token.tkRightParen);
+expectToken(9);
 return stmt;
-} else if (tk == Token.tkClass) {
+} else if (tk == 5) {
 stmt = Statement(StatementKind.ClassStatement);
 stmt.identifier = expectIdentifier();
-if (acceptToken(Token.tkLeftParen)) {
+if (acceptToken(8)) {
 stmt.defnArguments = parseDefnArguments();
 }
 stmt.block = parseBlock();
-expectToken(Token.tkEnd);
+expectToken(29);
 stmt.isPublic = isPublic;
 return stmt;
-} else if (tk == Token.tkFunction) {
+} else if (tk == 6) {
 stmt = Statement(StatementKind.FunctionStatement);
 stmt.identifier = expectIdentifier();
-if (acceptToken(Token.tkLeftParen)) {
+if (acceptToken(8)) {
 stmt.defnArguments = parseDefnArguments();
 }
-if (acceptToken(Token.tkColon)) {
+if (acceptToken(21)) {
 type = parseType();
 } else {
-type = ParsedType(TypeKind.voidType, null, null);
+type = ParsedType(13, null, null);
 }
 stmt.block = parseBlock();
-expectToken(Token.tkEnd);
+expectToken(29);
 stmt.isPublic = isPublic;
 stmt.type = type;
 return stmt;
-} else if (tk == Token.tkReturn) {
-stmt = Statement(StatementKind.ReturnStatement);
+} else if (tk == 7) {
+stmt = Statement(5);
 stmt.value = parseExpression();
 return stmt;
-} else if (tk == Token.tkIf) {
-stmt = Statement(StatementKind.IfStatement);
+} else if (tk == 37) {
+stmt = Statement(6);
 stmt.value = parseExpression();
 stmt.block = parseBlock();
-while (acceptToken(Token.tkElseif)) {
+while (acceptToken(28)) {
 stmt.elseIf.push(ElseIfClause(parseExpression(), parseBlock()));
 }
-if (acceptToken(Token.tkElse)) {
+if (acceptToken(27)) {
 stmt.elseBlock = parseBlock();
 }
-expectToken(Token.tkEnd);
+expectToken(29);
 return stmt;
-} else if (tk == Token.tkWhile) {
-stmt = Statement(StatementKind.WhileStatement);
+} else if (tk == 38) {
+stmt = Statement(7);
 stmt.value = parseExpression();
 stmt.block = parseBlock();
-expectToken(Token.tkEnd);
+expectToken(29);
 return stmt;
-} else if (tk == Token.tkRepeat) {
-stmt = Statement(StatementKind.RepeatStatement);
+} else if (tk == 39) {
+stmt = Statement(11);
 stmt.block = parseBlock();
-expectToken(Token.tkUntil);
+expectToken(40);
 stmt.value = parseExpression();
 return stmt;
-} else if (tk == Token.tkFor) {
+} else if (tk == 42) {
 stmt = Statement(StatementKind.ForStatement);
 stmt.identifier = expectIdentifier();
-expectToken(Token.tkOf);
+expectToken(41);
 stmt.value = parseExpression();
-if (acceptToken(Token.tkRangeInclusive)) {
+if (acceptToken(19)) {
 stmt.lhs = stmt.value;
 stmt.value = parseExpression();
-stmt.kind = StatementKind.ForRangeStatement;
-} else if (acceptToken(Token.tkRangeExclusive)) {
+stmt.kind = 13;
+} else if (acceptToken(18)) {
 stmt.lhs = stmt.value;
 stmt.value = parseExpression();
-stmt.kind = StatementKind.ForRangeExclusiveStatement;
+stmt.kind = 14;
 }
 stmt.block = parseBlock();
-expectToken(Token.tkEnd);
+expectToken(29);
 return stmt;
-} else if (tk == Token.tkImport) {
-stmt = Statement(StatementKind.ImportStatement);
+} else if (tk == 34) {
+stmt = Statement(8);
 stmt.identifierList.push(expectIdentifier());
-while (acceptToken(Token.tkComma)) {
+while (acceptToken(11)) {
 stmt.identifierList.push(expectIdentifier());
 }
-expectToken(Token.tkFrom);
-if (acceptToken(Token.tkDot)) {
+expectToken(35);
+if (acceptToken(16)) {
 stmt.identifier = ".";
-} else if (acceptToken(Token.tkRangeInclusive)) {
+} else if (acceptToken(19)) {
 stmt.identifier = "..";
 } else {
 stmt.identifier = expectIdentifier();
 }
-while (acceptToken(Token.tkSlash)) {
-if (acceptToken(Token.tkRangeInclusive)) {
+while (acceptToken(51)) {
+if (acceptToken(19)) {
 stmt.identifier = stmt.identifier + "/..";
 } else {
 stmt.identifier = stmt.identifier + "/" + expectIdentifier();
@@ -336,7 +347,7 @@ return stmt;
 }
 tokeniser.putback();
 value = parseExpression();
-if (acceptToken(Token.tkAssign)) {
+if (acceptToken(22)) {
 stmt = Statement(StatementKind.AssignStatement);
 stmt.value = parseExpression();
 stmt.lhs = value;
@@ -361,17 +372,17 @@ _o.parseBlock = parseBlock;
 function parseDefnArgument():class_DefnArgument {
  // bool
 let isPublic: boolean = false;
-if (acceptToken(Token.tkPublic)) {
+if (acceptToken(44)) {
 isPublic = true;
 }
  // string
 const identifier: string = expectIdentifier();
-expectToken(Token.tkColon);
+expectToken(21);
  // object<ParsedType>
 const type: class_ParsedType = parseType();
  // object<DefnArgument>
 const arg: class_DefnArgument = DefnArgument(identifier, type, isPublic);
-if (acceptToken(Token.tkAssign)) {
+if (acceptToken(22)) {
 arg.value = parseExpression();
 }
 return arg;
@@ -379,23 +390,23 @@ return arg;
 function parseDefnArguments():class_DefnArgument[] {
  // array<object<DefnArgument>>
 const result: class_DefnArgument[] = [];
-if (acceptToken(Token.tkRightParen)) {
+if (acceptToken(9)) {
 return result;
 }
 result.push(parseDefnArgument());
-while (acceptToken(Token.tkComma)) {
+while (acceptToken(11)) {
 result.push(parseDefnArgument());
 }
-expectToken(Token.tkRightParen);
+expectToken(9);
 return result;
 }
 function parseExpression():class_Expression {
  // object<Expression>
 let left: class_Expression = parseAndExpression();
- // object<Token>
+ // unknown
 let tk: Token = tokeniser.nextToken();
-while (tk == Token.tkOr) {
-left = Expression(ExpressionKind.Or, left, parseAndExpression());
+while (tk == 24) {
+left = Expression(18, left, parseAndExpression(), null);
 tk = tokeniser.nextToken();
 }
 tokeniser.putback();
@@ -404,10 +415,10 @@ return left;
 function parseAndExpression():class_Expression {
  // object<Expression>
 let left: class_Expression = parseComparisonExpression();
- // object<Token>
+ // unknown
 let tk: Token = tokeniser.nextToken();
-while (tk == Token.tkAnd) {
-left = Expression(ExpressionKind.And, left, parseComparisonExpression());
+while (tk == 23) {
+left = Expression(17, left, parseComparisonExpression(), null);
 tk = tokeniser.nextToken();
 }
 tokeniser.putback();
@@ -416,20 +427,20 @@ return left;
 function parseComparisonExpression():class_Expression {
  // object<Expression>
 let left: class_Expression = parseAddSub();
- // object<Token>
+ // unknown
 let tk: Token = tokeniser.nextToken();
-if (tk == Token.tkLessThan) {
-left = Expression(ExpressionKind.LessThan, left, parseAddSub());
-} else if (tk == Token.tkLessThanEquals) {
-left = Expression(ExpressionKind.LessThanEquals, left, parseAddSub());
-} else if (tk == Token.tkEquals) {
-left = Expression(ExpressionKind.Equals, left, parseAddSub());
-} else if (tk == Token.tkNotEquals) {
-left = Expression(ExpressionKind.NotEquals, left, parseAddSub());
-} else if (tk == Token.tkGreaterThan) {
-left = Expression(ExpressionKind.GreaterThan, left, parseAddSub());
-} else if (tk == Token.tkGreaterThanEquals) {
-left = Expression(ExpressionKind.GreaterThanEquals, left, parseAddSub());
+if (tk == 54) {
+left = Expression(11, left, parseAddSub(), null);
+} else if (tk == 53) {
+left = Expression(12, left, parseAddSub(), null);
+} else if (tk == 15) {
+left = Expression(13, left, parseAddSub(), null);
+} else if (tk == 52) {
+left = Expression(14, left, parseAddSub(), null);
+} else if (tk == 55) {
+left = Expression(15, left, parseAddSub(), null);
+} else if (tk == 56) {
+left = Expression(16, left, parseAddSub(), null);
 } else {
 tokeniser.putback();
 }
@@ -438,13 +449,13 @@ return left;
 function parseAddSub():class_Expression {
  // object<Expression>
 let left: class_Expression = parseTerm();
- // object<Token>
+ // unknown
 let tk: Token = tokeniser.nextToken();
-while (tk == Token.tkPlus || tk == Token.tkMinus) {
-if (tk == Token.tkPlus) {
-left = Expression(ExpressionKind.Add, left, parseTerm());
+while (tk == 48 || tk == 49) {
+if (tk == 48) {
+left = Expression(9, left, parseTerm(), null);
 } else {
-left = Expression(ExpressionKind.Subtract, left, parseTerm());
+left = Expression(10, left, parseTerm(), null);
 }
 tk = tokeniser.nextToken();
 }
@@ -454,13 +465,13 @@ return left;
 function parseTerm():class_Expression {
  // object<Expression>
 let left: class_Expression = parseFactor();
- // object<Token>
+ // unknown
 let tk: Token = tokeniser.nextToken();
-while (tk == Token.tkTimes || tk == Token.tkSlash) {
-if (tk == Token.tkTimes) {
-left = Expression(ExpressionKind.Multiply, left, parseFactor());
+while (tk == 50 || tk == 51) {
+if (tk == 50) {
+left = Expression(6, left, parseFactor(), null);
 } else {
-left = Expression(ExpressionKind.Divide, left, parseFactor());
+left = Expression(7, left, parseFactor(), null);
 }
 tk = tokeniser.nextToken();
 }
@@ -468,7 +479,7 @@ tokeniser.putback();
 return left;
 }
 function parseFactor():class_Expression {
- // object<Token>
+ // unknown
 const tk: Token = tokeniser.nextToken();
  // nullable<object<Expression>>
 let e: class_Expression | null = null;
@@ -476,86 +487,88 @@ let e: class_Expression | null = null;
 let p: class_Expression | null = null;
  // nullable<string>
 let ident: string | null = null;
-if (tk == Token.tkIntConstant) {
-e = Expression(ExpressionKind.IntConstant, null, null);
+if (tk == 1) {
+e = Expression(0, null, null, tokeniser);
 e.value = tokeniser.value();
-} else if (tk == Token.tkDoubleConstant) {
-e = Expression(ExpressionKind.DoubleConstant, null, null);
+} else if (tk == 3) {
+e = Expression(1, null, null, tokeniser);
 e.value = tokeniser.value();
-} else if (tk == Token.tkStringConstant) {
-e = Expression(ExpressionKind.StringConstant, null, null);
+} else if (tk == 4) {
+e = Expression(2, null, null, tokeniser);
 e.value = tokeniser.value();
-} else if (tk == Token.tkIdentifier) {
-e = Expression(ExpressionKind.Identifier, null, null);
+} else if (tk == 0) {
+e = Expression(5, null, null, tokeniser);
 e.value = tokeniser.value();
-} else if (tk == Token.tkLeftParen) {
+} else if (tk == 8) {
 e = parseExpression();
-expectToken(Token.tkRightParen);
-} else if (tk == Token.tkNot) {
-e = Expression(ExpressionKind.Not, parseFactor(), null);
-} else if (tk == Token.tkMinus) {
-e = Expression(ExpressionKind.Negate, parseFactor(), null);
-} else if (tk == Token.tkBoolConstant) {
-e = Expression(ExpressionKind.BoolConstant, null, null);
+expectToken(9);
+} else if (tk == 45) {
+e = Expression(27, parseFactor(), null, null);
+} else if (tk == 49) {
+e = Expression(28, parseFactor(), null, null);
+} else if (tk == 2) {
+e = Expression(26, null, null, null);
 e.value = tokeniser.value();
-} else if (tk == Token.tkString) {
-e = Expression(ExpressionKind.IntrinsicType, null, null);
+} else if (tk == 33) {
+e = Expression(24, null, null, null);
 e.value = tokeniser.value();
-} else if (tk == Token.tkNil) {
-e = Expression(ExpressionKind.NilConstant, null, null);
+} else if (tk == 43) {
+e = Expression(3, null, null, null);
 e.value = tokeniser.value();
-} else if (tk == Token.tkLeftBracket) {
-expectToken(Token.tkRightBracket);
-e = Expression(ExpressionKind.ArrayConstant, null, null);
+} else if (tk == 12) {
+expectToken(13);
+e = Expression(4, null, null, null);
 } else {
 panic("Unexpected token: " + tokeniser.value());
-e = Expression(ExpressionKind.Invalid, null, null);
+e = Expression(29, null, null, null);
 }
 while (true) {
-if (acceptToken(Token.tkDot)) {
-e = Expression(ExpressionKind.Dot, e, null);
+if (acceptToken(16)) {
+e = Expression(20, e, null, null);
 e.line = tokeniser.line;
 e.value = expectIdentifier();
-} else if (acceptToken(Token.tkOptDot)) {
-e = Expression(ExpressionKind.OptDot, e, null);
+e.tokenPos = tokeniser.start();
+e.tokenLength = tokeniser.tokenLength();
+} else if (acceptToken(17)) {
+e = Expression(19, e, null, null);
 e.line = tokeniser.line;
 e.value = expectIdentifier();
-} else if (acceptToken(Token.tkBang)) {
-e = Expression(ExpressionKind.Bang, e, null);
-} else if (acceptToken(Token.tkLeftParen)) {
-e = Expression(ExpressionKind.Invoke, e, null);
+} else if (acceptToken(47)) {
+e = Expression(21, e, null, null);
+} else if (acceptToken(8)) {
+e = Expression(22, e, null, null);
 e.line = tokeniser.line;
-if (!acceptToken(Token.tkRightParen)) {
+if (!acceptToken(9)) {
 do {
 ident = expectIdentifier();
-if (acceptToken(Token.tkColon)) {
+if (acceptToken(21)) {
 e.identifiers.push(ident);
 e.indexes.push(parseExpression());
 } else {
-p = Expression(ExpressionKind.Identifier, null, null);
+p = Expression(5, null, null, null);
 p.value = ident;
 e.indexes.push(p);
 e.identifiers.push(ident);
 }
-} while (!(!acceptToken(Token.tkComma)))
-expectToken(Token.tkRightParen);
+} while (!(!acceptToken(11)))
+expectToken(9);
 }
-} else if (acceptToken(Token.tkLeftBracket)) {
-e = Expression(ExpressionKind.Index, e, null);
+} else if (acceptToken(12)) {
+e = Expression(23, e, null, null);
 e.line = tokeniser.line;
-if (!acceptToken(Token.tkRightBracket)) {
+if (!acceptToken(13)) {
 e.indexes.push(parseExpression());
-if (acceptToken(Token.tkRangeInclusive)) {
-e.kind = ExpressionKind.Slice;
-} else if (acceptToken(Token.tkRangeExclusive)) {
-e.kind = ExpressionKind.Slice;
+if (acceptToken(19)) {
+e.kind = 25;
+} else if (acceptToken(18)) {
+e.kind = 25;
 e.indexes.push(parseExpression());
 } else {
-while (acceptToken(Token.tkComma)) {
+while (acceptToken(11)) {
 e.indexes.push(parseExpression());
 }
 }
-expectToken(Token.tkRightBracket);
+expectToken(13);
 }
 } else {
 return e!;

@@ -19,12 +19,12 @@ function getBlockDefinitions(block: Statement[], outerScope: IdentifierOrigin[st
     const scope := cloneScope(scope: outerScope)
 
     for stmt of block
-        if stmt.kind = StatementKind.FunctionStatement
-            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Function, type: ParsedType(kind: TypeKind.functionType, stmt), isMutable: false)
-        elseif stmt.kind = StatementKind.ClassStatement
-            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Class, type: ParsedType(kind: TypeKind.classType, stmt), isMutable: false)
-        elseif stmt.kind = StatementKind.EnumStatement
-            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Enum, type: ParsedType(kind: TypeKind.enumDefinitionType, stmt), isMutable: false)
+        if stmt.kind = FunctionStatement
+            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Function, type: ParsedType(kind: functionType, stmt), isMutable: false)
+        elseif stmt.kind = ClassStatement
+            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Class, type: ParsedType(kind: classType, stmt), isMutable: false)
+        elseif stmt.kind = EnumStatement
+            scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Enum, type: ParsedType(kind: enumDefinitionType, stmt), isMutable: false)
         end
     end
 
@@ -35,10 +35,10 @@ function inferPublicInterface(module: Statement[], outerScope: IdentifierOrigin[
     const scope := getBlockDefinitions(block: module, outerScope)
 
     for stmt of module
-        if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
+        if stmt.kind = ClassStatement or stmt.kind = FunctionStatement
             inferClassFunctionInterface(scope, stmt)
-        elseif stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
-            if stmt.type.kind = TypeKind.unknownType
+        elseif stmt.kind = LetStatement or stmt.kind = ConstStatement
+            if stmt.type.kind = unknownType
                 stmt.type := inferPublicExpressionType(expr: stmt.value!, scope)
             elseif stmt.type <> nil
                 resolveType(type: stmt.type, scope)
@@ -50,7 +50,7 @@ function inferPublicInterface(module: Statement[], outerScope: IdentifierOrigin[
 end
 
 function effectiveType(type: ParsedType) : ParsedType
-    if type.kind = TypeKind.pointerType
+    if type.kind = pointerType
         return effectiveType(type: type.ref!)
     end
     return type
@@ -58,59 +58,59 @@ end
 
 public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[string], forClass: bool)
     for stmt of block
-        if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
+        if stmt.kind = ClassStatement or stmt.kind = FunctionStatement
             inferClassFunctionInterface(scope, stmt)
         end
     end
 
     for stmt of block
-        if stmt.kind = StatementKind.ClassStatement or stmt.kind = StatementKind.FunctionStatement
+        if stmt.kind = ClassStatement or stmt.kind = FunctionStatement
             const innerScope := cloneScope(scope)
             for arg of stmt.defnArguments
-                if stmt.kind = StatementKind.ClassStatement and arg.isPublic
+                if stmt.kind = ClassStatement and arg.isPublic
                     innerScope[arg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: arg.type, isMutable: true)
                 else
                     innerScope[arg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: arg.type, isMutable: true)
                 end
             end
-            inferBlock(block: stmt.block, outerScope: innerScope, forClass: stmt.kind = StatementKind.ClassStatement)
-        elseif stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
+            inferBlock(block: stmt.block, outerScope: innerScope, forClass: stmt.kind = ClassStatement)
+        elseif stmt.kind = LetStatement or stmt.kind = ConstStatement
             if stmt.value <> nil
                 inferExpressionType(expr: stmt.value!, scope)
             end
-            if stmt.type.kind = TypeKind.unknownType
+            if stmt.type.kind = unknownType
                 stmt.type := inferExpressionType(expr: stmt.value!, scope)
-                if stmt.type.kind = TypeKind.unknownType
+                if stmt.type.kind = unknownType
                     panic(message: "Could not infer type of " + stmt.identifier!)
                 end
             else
                 resolveType(type: stmt.type, scope)
             end
             if forClass and stmt.isPublic
-                scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: stmt.type, isMutable: stmt.kind = StatementKind.LetStatement)
+                scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: stmt.type, isMutable: stmt.kind = LetStatement)
             else
-                scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: stmt.type, isMutable: stmt.kind = StatementKind.LetStatement)
+                scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: stmt.type, isMutable: stmt.kind = LetStatement)
             end
-        elseif stmt.kind = StatementKind.ReturnStatement
+        elseif stmt.kind = ReturnStatement
             if stmt.value <> nil
                 stmt.value.type := inferExpressionType(expr: stmt.value!, scope)
             end
-        elseif stmt.kind = StatementKind.WhileStatement
+        elseif stmt.kind = WhileStatement
             inferExpressionType(expr: stmt.value!, scope)
             inferBlock(block: stmt.block, outerScope: scope, forClass)
-        elseif stmt.kind = StatementKind.RepeatStatement
+        elseif stmt.kind = RepeatStatement
             inferBlock(block: stmt.block, outerScope: scope, forClass)
             inferExpressionType(expr: stmt.value!, scope)
-        elseif stmt.kind = StatementKind.ForStatement
+        elseif stmt.kind = ForStatement
             inferExpressionType(expr: stmt.value!, scope)
             const sequenceType := effectiveType(type: stmt.value!.type)
-            if sequenceType.kind <> TypeKind.arrayType
+            if sequenceType.kind <> arrayType
                 panic(message: "For loop must iterate over an array")
             end
             const innerScope := cloneScope(scope)
             innerScope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: sequenceType.ref!, isMutable: true)
             inferBlock(block: stmt.block, outerScope: innerScope, forClass)
-        elseif stmt.kind = StatementKind.IfStatement
+        elseif stmt.kind = IfStatement
             inferExpressionType(expr: stmt.value!, scope)
             inferBlock(block: stmt.block, outerScope: scope, forClass)
             for ei of stmt.elseIf
@@ -118,134 +118,159 @@ public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[st
                 inferBlock(block: ei.block, outerScope: scope, forClass)
             end
             inferBlock(block: stmt.elseBlock!, outerScope: scope, forClass)
-        elseif stmt.kind = StatementKind.ExpressionStatement
+        elseif stmt.kind = ExpressionStatement
             inferExpressionType(expr: stmt.value!, scope)
-        elseif stmt.kind = StatementKind.AssignStatement
+        elseif stmt.kind = AssignStatement
             inferExpressionType(expr: stmt.lhs!, scope)
-            inferExpressionType(expr: stmt.value!, scope)
+            inferExpressionType(expr: stmt.value!, scope, impliedType: stmt.lhs!.type)
         end
     end
 end
 
 function flattenObjectType(type: ParsedType): ParsedType
-    if type.kind = TypeKind.pointerType or type.kind = TypeKind.nullableType
+    if type.kind = pointerType or type.kind = nullableType
         return flattenObjectType(type: type.ref!)
     end
     return type
 end
 
 function inferPublicExpressionType(expr: Expression, scope: IdentifierOrigin[string]): ParsedType
-    if expr.kind = ExpressionKind.IntConstant
-        return ParsedType(kind: TypeKind.intType)
-    elseif expr.kind = ExpressionKind.StringConstant
-        return ParsedType(kind: TypeKind.stringType)
-    elseif expr.kind = ExpressionKind.BoolConstant
-        return ParsedType(kind: TypeKind.boolType)
+    if expr.kind = IntConstant
+        return ParsedType(kind: intType)
+    elseif expr.kind = StringConstant
+        return ParsedType(kind: stringType)
+    elseif expr.kind = BoolConstant
+        return ParsedType(kind: boolType)
     end
-    return ParsedType(kind: TypeKind.unknownType)
+    return ParsedType(kind: unknownType)
 end
 
-function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string]): ParsedType
+function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], impliedType: ParsedType^ := nil): ParsedType
     let returnType: ParsedType?
-    if expr.kind = ExpressionKind.Identifier
+    if expr.kind = Identifier
+        if impliedType?.kind = enumType
+            const enumDef := impliedType.stmt!
+            const enumValue := enumDef.identifierList.indexOf(value: expr.value!)
+            if enumValue >= 0
+                expr.kind := IntConstant
+                expr.value := "" + enumValue
+                expr.type := ParsedType(kind: enumType, stmt: enumDef)
+                return expr.type
+            end
+        end
+
         if scope.has(key: expr.value!)
             expr.origin := scope[expr.value!]!
             expr.type := expr.origin!.type
         else
             panic(message: "Could not resolve identifier " + expr.value)
         end
-    elseif expr.kind = ExpressionKind.IntConstant
-        expr.type := ParsedType(kind: TypeKind.intType)
-    elseif expr.kind = ExpressionKind.StringConstant
-        expr.type := ParsedType(kind: TypeKind.stringType)
-    elseif expr.kind = ExpressionKind.BoolConstant
-        expr.type := ParsedType(kind: TypeKind.boolType)
-    elseif expr.kind = ExpressionKind.Not
+    elseif expr.kind = IntConstant
+        expr.type := ParsedType(kind: intType)
+    elseif expr.kind = StringConstant
+        expr.type := ParsedType(kind: stringType)
+    elseif expr.kind = BoolConstant
+        expr.type := ParsedType(kind: boolType)
+    elseif expr.kind = Not
         inferExpressionType(expr: expr.left!, scope)
-        expr.type := ParsedType(kind: TypeKind.boolType)
-    elseif expr.kind = ExpressionKind.And or expr.kind = ExpressionKind.Or or expr.kind = ExpressionKind.Equals or expr.kind = ExpressionKind.NotEquals or expr.kind = ExpressionKind.LessThan or expr.kind = ExpressionKind.LessThanEquals or expr.kind = ExpressionKind.GreaterThan or expr.kind = ExpressionKind.GreaterThanEquals
+        expr.type := ParsedType(kind: boolType)
+    elseif expr.kind = Equals or expr.kind = NotEquals
+        const leftType := inferExpressionType(expr: expr.left!, scope)
+        inferExpressionType(expr: expr.right!, scope, impliedType: leftType)
+        expr.type := ParsedType(kind: boolType)
+    elseif expr.kind = And or expr.kind = Or or expr.kind = LessThan or expr.kind = LessThanEquals or expr.kind = GreaterThan or expr.kind = GreaterThanEquals
         inferExpressionType(expr: expr.left!, scope)
         inferExpressionType(expr: expr.right!, scope)
-        expr.type := ParsedType(kind: TypeKind.boolType)
-    elseif expr.kind = ExpressionKind.Add
+        expr.type := ParsedType(kind: boolType)
+    elseif expr.kind = Add
         inferExpressionType(expr: expr.left!, scope)
         inferExpressionType(expr: expr.right!, scope)
-        if expr.left!.type.kind = TypeKind.intType and expr.right!.type.kind = TypeKind.intType
-            expr.type := ParsedType(kind: TypeKind.intType)
+        if expr.left!.type.kind = intType and expr.right!.type.kind = intType
+            expr.type := ParsedType(kind: intType)
         else
-            expr.type := ParsedType(kind: TypeKind.stringType)
+            expr.type := ParsedType(kind: stringType)
         end
-    elseif expr.kind = ExpressionKind.Subtract or expr.kind = ExpressionKind.Multiply or expr.kind = ExpressionKind.Divide or expr.kind = ExpressionKind.Modulo
+    elseif expr.kind = Subtract or expr.kind = Multiply or expr.kind = Divide or expr.kind = Modulo
         inferExpressionType(expr: expr.left!, scope)
         inferExpressionType(expr: expr.right!, scope)
-        expr.type := ParsedType(kind: TypeKind.intType)
-    elseif expr.kind = ExpressionKind.Dot or expr.kind = ExpressionKind.OptDot
+        expr.type := ParsedType(kind: intType)
+    elseif expr.kind = Dot or expr.kind = OptDot
         const type := flattenObjectType(type: inferExpressionType(expr: expr.left!, scope))
-        if type.kind = TypeKind.objectType and type.stmt?.kind = StatementKind.ClassStatement
+        if type.kind = objectType and type.stmt?.kind = ClassStatement
             expr.type := getFieldType(classDefinition: type.stmt, identifier: expr.value!)
-        elseif type.kind = TypeKind.enumDefinitionType
-            returnType := ParsedType(kind: TypeKind.enumType, stmt: type.stmt)
+        elseif type.kind = enumDefinitionType
+            const enumStmt := type.stmt!
+            if enumStmt.identifierList.indexOf(value: expr.value!) < 0
+                panic(message: "Could not find enum value " + expr.value!)
+            end
+
+            returnType := ParsedType(kind: enumType, stmt: type.stmt)
             returnType.identifier := type.stmt!.identifier
             expr.type := returnType
-        elseif type.kind = TypeKind.stringType and expr.value = "length"
-            expr.type := ParsedType(kind: TypeKind.intType)
-        elseif type.kind = TypeKind.arrayType and expr.value = "length"
-            expr.type := ParsedType(kind: TypeKind.intType)
-        elseif type.kind = TypeKind.arrayType and expr.value = "push"
-            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
-            fakeStmt.type := ParsedType(kind: TypeKind.voidType)
+        elseif type.kind = stringType and expr.value = "length"
+            expr.type := ParsedType(kind: intType)
+        elseif type.kind = arrayType and expr.value = "length"
+            expr.type := ParsedType(kind: intType)
+        elseif type.kind = arrayType and expr.value = "push"
+            const fakeStmt := Statement(kind: FunctionStatement)
+            fakeStmt.type := ParsedType(kind: voidType)
             fakeStmt.defnArguments.push(value: DefnArgument(identifier: "value", type: type.ref!, isPublic: false))
-            expr.type := ParsedType(kind: TypeKind.functionType, stmt: fakeStmt)
-        elseif type.kind = TypeKind.arrayType and expr.value = "filter"
-            const callbackTypeStmt := Statement(kind: StatementKind.FunctionStatement)
+            expr.type := ParsedType(kind: functionType, stmt: fakeStmt)
+        elseif type.kind = arrayType and expr.value = "indexOf"
+            const fakeStmt := Statement(kind: FunctionStatement)
+            fakeStmt.type := ParsedType(kind: intType)
+            fakeStmt.defnArguments.push(value: DefnArgument(identifier: "value", type: type.ref!, isPublic: false))
+            expr.type := ParsedType(kind: functionType, stmt: fakeStmt)
+        elseif type.kind = arrayType and expr.value = "filter"
+            const callbackTypeStmt := Statement(kind: FunctionStatement)
             callbackTypeStmt.identifier := "where"
-            callbackTypeStmt.type := ParsedType(kind: TypeKind.boolType)
+            callbackTypeStmt.type := ParsedType(kind: boolType)
             callbackTypeStmt.defnArguments.push(value: DefnArgument(identifier: "it", type: type.ref!, isPublic: false))
-            const callbackType := ParsedType(kind: TypeKind.functionType, stmt: callbackTypeStmt)
+            const callbackType := ParsedType(kind: functionType, stmt: callbackTypeStmt)
 
-            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
+            const fakeStmt := Statement(kind: FunctionStatement)
             fakeStmt.type := type
             fakeStmt.identifier := "filter"
             fakeStmt.defnArguments.push(value: DefnArgument(identifier: "where", type: callbackType, isPublic: false))
 
-            expr.type := ParsedType(kind: TypeKind.functionType, stmt: fakeStmt)
-        elseif type.kind = TypeKind.arrayType and expr.value = "join"
-            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
-            fakeStmt.type := ParsedType(kind: TypeKind.stringType)
-            expr.type := ParsedType(kind: TypeKind.functionType, stmt: fakeStmt)
-        elseif type.kind = TypeKind.mapType and expr.value = "has"
-            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
-            fakeStmt.type := ParsedType(kind: TypeKind.boolType)
+            expr.type := ParsedType(kind: functionType, stmt: fakeStmt)
+        elseif type.kind = arrayType and expr.value = "join"
+            const fakeStmt := Statement(kind: FunctionStatement)
+            fakeStmt.type := ParsedType(kind: stringType)
+            expr.type := ParsedType(kind: functionType, stmt: fakeStmt)
+        elseif type.kind = mapType and expr.value = "has"
+            const fakeStmt := Statement(kind: FunctionStatement)
+            fakeStmt.type := ParsedType(kind: boolType)
             fakeStmt.defnArguments.push(value: DefnArgument(identifier: "key", type: type.ref!, isPublic: false))
-            expr.type := ParsedType(kind: TypeKind.functionType, stmt: fakeStmt)
-        elseif type.kind = TypeKind.mapType and expr.value = "delete"
-            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
-            fakeStmt.type := ParsedType(kind: TypeKind.voidType)
+            expr.type := ParsedType(kind: functionType, stmt: fakeStmt)
+        elseif type.kind = mapType and expr.value = "delete"
+            const fakeStmt := Statement(kind: FunctionStatement)
+            fakeStmt.type := ParsedType(kind: voidType)
             fakeStmt.defnArguments.push(value: DefnArgument(identifier: "key", type: type.ref!, isPublic: false))
-            expr.type := ParsedType(kind: TypeKind.functionType, stmt: fakeStmt)
-        elseif type.kind = TypeKind.mapType and expr.value = "keys"
-            const fakeStmt := Statement(kind: StatementKind.FunctionStatement)
-            fakeStmt.type := ParsedType(kind: TypeKind.arrayType, ref: type.mapKeyRef!)
-            expr.type := ParsedType(kind: TypeKind.functionType, stmt: fakeStmt)
+            expr.type := ParsedType(kind: functionType, stmt: fakeStmt)
+        elseif type.kind = mapType and expr.value = "keys"
+            const fakeStmt := Statement(kind: FunctionStatement)
+            fakeStmt.type := ParsedType(kind: arrayType, ref: type.mapKeyRef!)
+            expr.type := ParsedType(kind: functionType, stmt: fakeStmt)
         else
             panic(message: "Not an object type")
         end
-    elseif expr.kind = ExpressionKind.Bang
+    elseif expr.kind = Bang
         inferExpressionType(expr: expr.left!, scope)
-        if expr.left!.type.kind = TypeKind.nullableType
+        if expr.left!.type.kind = nullableType
             expr.type := expr.left!.type.ref!
         else
             expr.type := expr.left!.type
         end
-    elseif expr.kind = ExpressionKind.Invoke
+    elseif expr.kind = Invoke
         const type := inferExpressionType(expr: expr.left!, scope)
-        if type.kind = TypeKind.functionType
+        if type.kind = functionType
             expr.type := type.stmt!.type!
-            if expr.type.kind = TypeKind.unknownType
+            if expr.type.kind = unknownType
                 panic(message: "Could not infer return type of function")
             end
-        elseif type.kind = TypeKind.classType
-            returnType := ParsedType(kind: TypeKind.objectType, stmt: type.stmt)
+        elseif type.kind = classType
+            returnType := ParsedType(kind: objectType, stmt: type.stmt)
             returnType.identifier := type.stmt!.identifier
             expr.type := returnType
         else
@@ -264,7 +289,7 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string]):
                 if defn.identifier = name
                     found := true
 
-                    if defn.type.kind = TypeKind.functionType
+                    if defn.type.kind = functionType
                         const lambdaScope := cloneScope(scope)
                         const scopeArgs := defn.type.stmt!.defnArguments
                         for scopeArg of scopeArgs
@@ -273,7 +298,7 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string]):
 
                         inferExpressionType(expr: arg, scope: lambdaScope)
                     else
-                        inferExpressionType(expr: arg, scope)
+                        inferExpressionType(expr: arg, scope, impliedType: defn.type)
                     end
                 end
                 didx := didx + 1
@@ -281,11 +306,11 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string]):
 
             aidx := aidx + 1
         end
-    elseif expr.kind = ExpressionKind.Slice
+    elseif expr.kind = Slice
         const type := flattenObjectType(type: inferExpressionType(expr: expr.left!, scope))
-        if type.kind = TypeKind.arrayType
+        if type.kind = arrayType
             expr.type := type
-        elseif type.kind = TypeKind.stringType
+        elseif type.kind = stringType
             expr.type := type
         else
             panic(message: "Not an array type")
@@ -293,14 +318,14 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string]):
         for arg of expr.indexes
             inferExpressionType(expr: arg, scope)
         end
-    elseif expr.kind = ExpressionKind.ArrayConstant
-        expr.type := ParsedType(kind: TypeKind.arrayInitType)
-    elseif expr.kind = ExpressionKind.Index
+    elseif expr.kind = ArrayConstant
+        expr.type := ParsedType(kind: arrayInitType)
+    elseif expr.kind = Index
         const type := flattenObjectType(type: inferExpressionType(expr: expr.left!, scope))
-        if type.kind = TypeKind.arrayType or type.kind = TypeKind.mapType
+        if type.kind = arrayType or type.kind = mapType
             expr.type := type.ref!
-        elseif type.kind = TypeKind.stringType
-            expr.type := ParsedType(kind: TypeKind.intType)
+        elseif type.kind = stringType
+            expr.type := ParsedType(kind: intType)
         else
             panic(message: "Not an array type")
         end
@@ -308,7 +333,7 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string]):
             inferExpressionType(expr: arg, scope)
         end
     end
-    if expr.type.kind = TypeKind.unknownType and expr.kind <> ExpressionKind.NilConstant
+    if expr.type.kind = unknownType and expr.kind <> NilConstant
         panic(message: "Could not infer type of expression")
     end
     return expr.type
@@ -321,18 +346,18 @@ function getFieldType(classDefinition: Statement, identifier: string): ParsedTyp
         end
     end
     for stmt of classDefinition.block
-        if stmt.kind = StatementKind.ConstStatement or stmt.kind = StatementKind.LetStatement
+        if stmt.kind = ConstStatement or stmt.kind = LetStatement
             if stmt.identifier = identifier
                 return stmt.type
             end
-        elseif stmt.kind = StatementKind.FunctionStatement
+        elseif stmt.kind = FunctionStatement
             if stmt.identifier = identifier
-                return ParsedType(kind: TypeKind.functionType, stmt)
+                return ParsedType(kind: functionType, stmt)
             end
         end
     end
     panic(message: "Field " + identifier + " not found in class " + classDefinition.identifier)
-    return ParsedType(kind: TypeKind.invalidType)
+    return ParsedType(kind: invalidType)
 end
 
 public function inferBlock(block: Statement[], outerScope: IdentifierOrigin[string], forClass: bool): IdentifierOrigin[string]
@@ -348,28 +373,31 @@ function inferClassFunctionInterface(scope: IdentifierOrigin[string], stmt: Stat
     for arg of stmt.defnArguments
         resolveType(type: arg.type, scope)
     end
-    if stmt.kind = StatementKind.ClassStatement
+    if stmt.kind = ClassStatement
         inferPublicInterface(module: stmt.block, outerScope: scope)
     end
 end
 
 function resolveType(type: ParsedType, scope: IdentifierOrigin[string])
-    if type.kind = TypeKind.objectType
+    if type.kind = objectType
         if scope.has(key: type.identifier!)
             const resolvedType := scope[type.identifier!]!.type
-            if resolvedType.kind = TypeKind.classType or resolvedType.kind = TypeKind.enumDefinitionType
+            if resolvedType.kind = classType
                 type.stmt := resolvedType.stmt
+            elseif resolvedType.kind = enumDefinitionType
+                type.stmt := resolvedType.stmt
+                type.kind := enumType
             else
                 panic(message: "Not a class or enum type " + type.identifier)
             end
         else
             panic(message: "Could not resolve type " + type.identifier)
         end
-    elseif type.kind = TypeKind.nullableType or type.kind = TypeKind.pointerType
+    elseif type.kind = nullableType or type.kind = pointerType
         resolveType(type: type.ref!, scope)
-    elseif type.kind = TypeKind.arrayType
+    elseif type.kind = arrayType
         resolveType(type: type.ref!, scope)
-    elseif type.kind = TypeKind.mapType
+    elseif type.kind = mapType
         resolveType(type: type.ref!, scope)
         resolveType(type: type.mapKeyRef!, scope)
     end

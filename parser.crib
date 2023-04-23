@@ -10,15 +10,23 @@ public enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConst
 
 public enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, arrayInitType, closureType, unknownType, invalidType)
 
-const sharedUnknownType := ParsedType(kind: TypeKind.unknownType)
+const sharedUnknownType := ParsedType(kind: unknownType)
 
-public class Expression(public kind: ExpressionKind, public left: Expression? := nil, public right: Expression? := nil)
+public class Expression(public kind: ExpressionKind, public left: Expression? := nil, public right: Expression? := nil, tokeniser: Tokeniser? := nil)
     public let value: string?
     public let indexes: Expression[]
     public let identifiers: string[]
     public let type: ParsedType := sharedUnknownType
     public let line := 0
+    public let tokenPos := 0
+    public let tokenLength := 0
     public let origin: IdentifierOrigin?
+
+    if tokeniser <> nil
+        line := tokeniser.line
+        tokenPos := tokeniser.start()
+        tokenLength := tokeniser.tokenLength()
+    end
 end
 
 public class ParsedType(public kind: TypeKind, public ref: ParsedType? := nil, public stmt: Statement? := nil)
@@ -64,7 +72,7 @@ class Parser(tokeniser: Tokeniser)
     end
 
     function expectIdentifier: string
-        return expectToken(expected: Token.tkIdentifier)
+        return expectToken(expected: tkIdentifier)
     end
 
     function parseType: ParsedType
@@ -73,29 +81,29 @@ class Parser(tokeniser: Tokeniser)
         let type: ParsedType := sharedUnknownType
         const identifier := tokeniser.value()
 
-        if tk = Token.tkInt
-            type := ParsedType(kind: TypeKind.intType)
-        elseif tk = Token.tkBool
-            type := ParsedType(kind: TypeKind.boolType)
-        elseif tk = Token.tkString
-            type := ParsedType(kind: TypeKind.stringType)
-        elseif tk = Token.tkIdentifier
-            type := ParsedType(kind: TypeKind.objectType)
+        if tk = tkInt
+            type := ParsedType(kind: intType)
+        elseif tk = tkBool
+            type := ParsedType(kind: boolType)
+        elseif tk = tkString
+            type := ParsedType(kind: stringType)
+        elseif tk = tkIdentifier
+            type := ParsedType(kind: objectType)
             type.identifier := identifier
         end
         while true
-            if acceptToken(token: Token.tkLeftBracket)
-                if acceptToken(token: Token.tkRightBracket)
-                    type := ParsedType(kind: TypeKind.arrayType, ref: type)
+            if acceptToken(token: tkLeftBracket)
+                if acceptToken(token: tkRightBracket)
+                    type := ParsedType(kind: arrayType, ref: type)
                 else
-                    type := ParsedType(kind: TypeKind.mapType, ref: type)
+                    type := ParsedType(kind: mapType, ref: type)
                     type.mapKeyRef := parseType()
-                    expectToken(expected: Token.tkRightBracket)
+                    expectToken(expected: tkRightBracket)
                 end
-            elseif acceptToken(token: Token.tkCaret)
-                type := ParsedType(kind: TypeKind.pointerType, ref: type)
-            elseif acceptToken(token: Token.tkQuestionMark)
-                type := ParsedType(kind: TypeKind.nullableType, ref: type)
+            elseif acceptToken(token: tkCaret)
+                type := ParsedType(kind: pointerType, ref: type)
+            elseif acceptToken(token: tkQuestionMark)
+                type := ParsedType(kind: nullableType, ref: type)
             else
                 return type
             end
@@ -112,32 +120,32 @@ class Parser(tokeniser: Tokeniser)
         let block: Statement[]
         let isPublic := false
 
-        if tk = Token.tkElse or tk = Token.tkElseif or tk = Token.tkEnd or tk = Token.tkUntil or tk = Token.tkEOF
+        if tk = tkElse or tk = tkElseif or tk = tkEnd or tk = tkUntil or tk = tkEOF
             tokeniser.putback()
             return nil
         end
 
-        if tk = Token.tkPublic
+        if tk = tkPublic
             isPublic := true
             tk := tokeniser.nextToken()
         end
 
-        if tk = Token.tkConst or tk = Token.tkLet
+        if tk = tkConst or tk = tkLet
             identifier := expectIdentifier()
-            if acceptToken(token: Token.tkColon)
+            if acceptToken(token: tkColon)
                 type := parseType()
             end
 
-            if acceptToken(token: Token.tkAssign)
+            if acceptToken(token: tkAssign)
                 value := parseExpression()
             else
                 value := nil
             end
 
-            if tk = Token.tkConst
-                stmt := Statement(kind: StatementKind.ConstStatement)
+            if tk = tkConst
+                stmt := Statement(kind: ConstStatement)
             else
-                stmt := Statement(kind: StatementKind.LetStatement)
+                stmt := Statement(kind: LetStatement)
             end
             stmt.value := value
             stmt.identifier := identifier
@@ -145,119 +153,119 @@ class Parser(tokeniser: Tokeniser)
             stmt.isPublic := isPublic
 
             return stmt
-        elseif tk = Token.tkEnum
-            stmt := Statement(kind: StatementKind.EnumStatement)
+        elseif tk = tkEnum
+            stmt := Statement(kind: EnumStatement)
             stmt.identifier := expectIdentifier()
             stmt.isPublic := isPublic
-            expectToken(expected: Token.tkLeftParen)
+            expectToken(expected: tkLeftParen)
 
             stmt.identifierList.push(value: expectIdentifier())
-            while acceptToken(token: Token.tkComma)
+            while acceptToken(token: tkComma)
                 stmt.identifierList.push(value: expectIdentifier())
             end
-            expectToken(expected: Token.tkRightParen)
+            expectToken(expected: tkRightParen)
 
             return stmt
-        elseif tk = Token.tkClass
+        elseif tk = tkClass
             stmt := Statement(kind: StatementKind.ClassStatement)
             stmt.identifier := expectIdentifier()
 
-            if acceptToken(token: Token.tkLeftParen)
+            if acceptToken(token: tkLeftParen)
                 stmt.defnArguments := parseDefnArguments()
             end
 
             stmt.block := parseBlock()
-            expectToken(expected: Token.tkEnd)
+            expectToken(expected: tkEnd)
             stmt.isPublic := isPublic
 
             return stmt
-        elseif tk = Token.tkFunction
+        elseif tk = tkFunction
             stmt := Statement(kind: StatementKind.FunctionStatement)
             stmt.identifier := expectIdentifier()
 
-            if acceptToken(token: Token.tkLeftParen)
+            if acceptToken(token: tkLeftParen)
                 stmt.defnArguments := parseDefnArguments()
             end
-            if acceptToken(token: Token.tkColon)
+            if acceptToken(token: tkColon)
                 type := parseType()
             else
-                type := ParsedType(kind: TypeKind.voidType)
+                type := ParsedType(kind: voidType)
             end
 
             stmt.block := parseBlock()
-            expectToken(expected: Token.tkEnd)
+            expectToken(expected: tkEnd)
             stmt.isPublic := isPublic
             stmt.type := type
 
             return stmt
-        elseif tk = Token.tkReturn
-            stmt := Statement(kind: StatementKind.ReturnStatement)
+        elseif tk = tkReturn
+            stmt := Statement(kind: ReturnStatement)
             stmt.value := parseExpression()
             return stmt
-        elseif tk = Token.tkIf
-            stmt := Statement(kind: StatementKind.IfStatement)
+        elseif tk = tkIf
+            stmt := Statement(kind: IfStatement)
 
             stmt.value := parseExpression()
             stmt.block := parseBlock()
-            while acceptToken(token: Token.tkElseif)
+            while acceptToken(token: tkElseif)
                 stmt.elseIf.push(value: ElseIfClause(value: parseExpression(), block: parseBlock()))
             end
-            if acceptToken(token: Token.tkElse)
+            if acceptToken(token: tkElse)
                 stmt.elseBlock := parseBlock()
             end
-            expectToken(expected: Token.tkEnd)
+            expectToken(expected: tkEnd)
 
             return stmt
-        elseif tk = Token.tkWhile
-            stmt := Statement(kind: StatementKind.WhileStatement)
+        elseif tk = tkWhile
+            stmt := Statement(kind: WhileStatement)
             stmt.value := parseExpression()
             stmt.block := parseBlock()
-            expectToken(expected: Token.tkEnd)
+            expectToken(expected: tkEnd)
 
             return stmt
-        elseif tk = Token.tkRepeat
-            stmt := Statement(kind: StatementKind.RepeatStatement)
+        elseif tk = tkRepeat
+            stmt := Statement(kind: RepeatStatement)
             stmt.block := parseBlock()
-            expectToken(expected: Token.tkUntil)
+            expectToken(expected: tkUntil)
             stmt.value := parseExpression()
 
             return stmt
-        elseif tk = Token.tkFor
+        elseif tk = tkFor
             stmt:= Statement(kind: StatementKind.ForStatement)
             stmt.identifier := expectIdentifier()
-            expectToken(expected: Token.tkOf)
+            expectToken(expected: tkOf)
             stmt.value := parseExpression()
 
-            if acceptToken(token: Token.tkRangeInclusive)
+            if acceptToken(token: tkRangeInclusive)
                 stmt.lhs := stmt.value
                 stmt.value := parseExpression()
-                stmt.kind := StatementKind.ForRangeStatement
-            elseif acceptToken(token: Token.tkRangeExclusive)
+                stmt.kind := ForRangeStatement
+            elseif acceptToken(token: tkRangeExclusive)
                 stmt.lhs := stmt.value
                 stmt.value := parseExpression()
-                stmt.kind := StatementKind.ForRangeExclusiveStatement
+                stmt.kind := ForRangeExclusiveStatement
             end
 
             stmt.block := parseBlock()
-            expectToken(expected: Token.tkEnd)
+            expectToken(expected: tkEnd)
 
             return stmt
-        elseif tk = Token.tkImport
-            stmt := Statement(kind: StatementKind.ImportStatement)
+        elseif tk = tkImport
+            stmt := Statement(kind: ImportStatement)
             stmt.identifierList.push(value: expectIdentifier())
-            while acceptToken(token: Token.tkComma)
+            while acceptToken(token: tkComma)
                 stmt.identifierList.push(value: expectIdentifier())
             end
-            expectToken(expected: Token.tkFrom)
-            if acceptToken(token: Token.tkDot)
+            expectToken(expected: tkFrom)
+            if acceptToken(token: tkDot)
                 stmt.identifier := "."
-            elseif acceptToken(token: Token.tkRangeInclusive)
+            elseif acceptToken(token: tkRangeInclusive)
                 stmt.identifier := ".."
             else
                 stmt.identifier := expectIdentifier()
             end
-            while acceptToken(token: Token.tkSlash)
-                if acceptToken(token: Token.tkRangeInclusive)
+            while acceptToken(token: tkSlash)
+                if acceptToken(token: tkRangeInclusive)
                     stmt.identifier := stmt.identifier + "/.."
                 else
                     stmt.identifier := stmt.identifier + "/" + expectIdentifier()
@@ -270,7 +278,7 @@ class Parser(tokeniser: Tokeniser)
 
         value := parseExpression()
 
-        if acceptToken(token: Token.tkAssign)
+        if acceptToken(token: tkAssign)
             stmt := Statement(kind: StatementKind.AssignStatement)
             stmt.value := parseExpression()
             stmt.lhs := value
@@ -296,16 +304,16 @@ class Parser(tokeniser: Tokeniser)
 
     function parseDefnArgument(): DefnArgument
         let isPublic := false
-        if acceptToken(token: Token.tkPublic)
+        if acceptToken(token: tkPublic)
             isPublic := true
         end
         const identifier := expectIdentifier()
-        expectToken(expected: Token.tkColon)
+        expectToken(expected: tkColon)
         const type := parseType()
 
         const arg := DefnArgument(identifier, type, isPublic)
 
-        if acceptToken(token: Token.tkAssign)
+        if acceptToken(token: tkAssign)
             arg.value := parseExpression()
         end
 
@@ -314,22 +322,22 @@ class Parser(tokeniser: Tokeniser)
 
     function parseDefnArguments(): DefnArgument[]
         const result: DefnArgument[]
-        if acceptToken(token: Token.tkRightParen)
+        if acceptToken(token: tkRightParen)
             return result
         end
         result.push(value: parseDefnArgument())
-        while acceptToken(token: Token.tkComma)
+        while acceptToken(token: tkComma)
             result.push(value: parseDefnArgument())
         end
-        expectToken(expected: Token.tkRightParen)
+        expectToken(expected: tkRightParen)
         return result
     end
 
     function parseExpression: Expression
         let left := parseAndExpression()
         let tk := tokeniser.nextToken()
-        while tk = Token.tkOr
-            left := Expression(kind: ExpressionKind.Or, left, right: parseAndExpression())
+        while tk = tkOr
+            left := Expression(kind: Or, left, right: parseAndExpression())
             tk := tokeniser.nextToken()
         end
         tokeniser.putback()
@@ -339,8 +347,8 @@ class Parser(tokeniser: Tokeniser)
     function parseAndExpression: Expression
         let left := parseComparisonExpression()
         let tk := tokeniser.nextToken()
-        while tk = Token.tkAnd
-            left := Expression(kind: ExpressionKind.And, left, right: parseComparisonExpression())
+        while tk = tkAnd
+            left := Expression(kind: And, left, right: parseComparisonExpression())
             tk := tokeniser.nextToken()
         end
         tokeniser.putback()
@@ -351,18 +359,18 @@ class Parser(tokeniser: Tokeniser)
         let left := parseAddSub()
         let tk := tokeniser.nextToken()
 
-        if tk = Token.tkLessThan
-            left := Expression(kind: ExpressionKind.LessThan, left, right: parseAddSub())
-        elseif tk = Token.tkLessThanEquals
-            left := Expression(kind: ExpressionKind.LessThanEquals, left, right: parseAddSub())
-        elseif tk = Token.tkEquals
-            left := Expression(kind: ExpressionKind.Equals, left, right: parseAddSub())
-        elseif tk = Token.tkNotEquals
-            left := Expression(kind: ExpressionKind.NotEquals, left, right: parseAddSub())
-        elseif tk = Token.tkGreaterThan
-            left := Expression(kind: ExpressionKind.GreaterThan, left, right: parseAddSub())
-        elseif tk = Token.tkGreaterThanEquals
-            left := Expression(kind: ExpressionKind.GreaterThanEquals, left, right: parseAddSub())
+        if tk = tkLessThan
+            left := Expression(kind: LessThan, left, right: parseAddSub())
+        elseif tk = tkLessThanEquals
+            left := Expression(kind: LessThanEquals, left, right: parseAddSub())
+        elseif tk = tkEquals
+            left := Expression(kind: Equals, left, right: parseAddSub())
+        elseif tk = tkNotEquals
+            left := Expression(kind: NotEquals, left, right: parseAddSub())
+        elseif tk = tkGreaterThan
+            left := Expression(kind: GreaterThan, left, right: parseAddSub())
+        elseif tk = tkGreaterThanEquals
+            left := Expression(kind: GreaterThanEquals, left, right: parseAddSub())
         else
             tokeniser.putback()
         end
@@ -372,11 +380,11 @@ class Parser(tokeniser: Tokeniser)
     function parseAddSub: Expression
         let left := parseTerm()
         let tk := tokeniser.nextToken()
-        while tk = Token.tkPlus or tk = Token.tkMinus
-            if tk = Token.tkPlus
-                left := Expression(kind: ExpressionKind.Add, left, right: parseTerm())
+        while tk = tkPlus or tk = tkMinus
+            if tk = tkPlus
+                left := Expression(kind: Add, left, right: parseTerm())
             else
-                left := Expression(kind: ExpressionKind.Subtract, left, right: parseTerm())
+                left := Expression(kind: Subtract, left, right: parseTerm())
             end
             tk := tokeniser.nextToken()
         end
@@ -387,11 +395,11 @@ class Parser(tokeniser: Tokeniser)
     function parseTerm: Expression
         let left := parseFactor()
         let tk := tokeniser.nextToken()
-        while tk = Token.tkTimes or tk = Token.tkSlash
-            if tk = Token.tkTimes
-                left := Expression(kind: ExpressionKind.Multiply, left, right: parseFactor())
+        while tk = tkTimes or tk = tkSlash
+            if tk = tkTimes
+                left := Expression(kind: Multiply, left, right: parseFactor())
             else
-                left := Expression(kind: ExpressionKind.Divide, left, right: parseFactor())
+                left := Expression(kind: Divide, left, right: parseFactor())
             end
             tk := tokeniser.nextToken()
         end
@@ -404,89 +412,91 @@ class Parser(tokeniser: Tokeniser)
         let e:Expression?
         let p:Expression?
         let ident: string?
-        if tk = Token.tkIntConstant
-            e := Expression(kind: ExpressionKind.IntConstant)
+        if tk = tkIntConstant
+            e := Expression(kind: IntConstant, tokeniser)
             e.value := tokeniser.value()
-        elseif tk = Token.tkDoubleConstant
-            e := Expression(kind: ExpressionKind.DoubleConstant)
+        elseif tk = tkDoubleConstant
+            e := Expression(kind: DoubleConstant, tokeniser)
             e.value := tokeniser.value()
-        elseif tk = Token.tkStringConstant
-            e := Expression(kind: ExpressionKind.StringConstant)
+        elseif tk = tkStringConstant
+            e := Expression(kind: StringConstant, tokeniser)
             e.value := tokeniser.value()
-        elseif tk = Token.tkIdentifier
-            e := Expression(kind: ExpressionKind.Identifier)
+        elseif tk = tkIdentifier
+            e := Expression(kind: Identifier, tokeniser)
             e.value := tokeniser.value()
-        elseif tk = Token.tkLeftParen
+        elseif tk = tkLeftParen
             e := parseExpression()
-            expectToken(expected: Token.tkRightParen)
-        elseif tk = Token.tkNot
-            e := Expression(kind: ExpressionKind.Not, left: parseFactor())
-        elseif tk = Token.tkMinus
-            e := Expression(kind: ExpressionKind.Negate, left: parseFactor())
-        elseif tk = Token.tkBoolConstant
-            e := Expression(kind: ExpressionKind.BoolConstant)
+            expectToken(expected: tkRightParen)
+        elseif tk = tkNot
+            e := Expression(kind: Not, left: parseFactor())
+        elseif tk = tkMinus
+            e := Expression(kind: Negate, left: parseFactor())
+        elseif tk = tkBoolConstant
+            e := Expression(kind: BoolConstant)
             e.value := tokeniser.value()
-        elseif tk = Token.tkString
-            e := Expression(kind: ExpressionKind.IntrinsicType)
+        elseif tk = tkString
+            e := Expression(kind: IntrinsicType)
             e.value := tokeniser.value()
-        elseif tk = Token.tkNil
-            e := Expression(kind: ExpressionKind.NilConstant)
+        elseif tk = tkNil
+            e := Expression(kind: NilConstant)
             e.value := tokeniser.value()
-        elseif tk = Token.tkLeftBracket
-            expectToken(expected: Token.tkRightBracket)
-            e := Expression(kind: ExpressionKind.ArrayConstant)
+        elseif tk = tkLeftBracket
+            expectToken(expected: tkRightBracket)
+            e := Expression(kind: ArrayConstant)
         else
             panic(message: "Unexpected token: " + tokeniser.value())
-            e:= Expression(kind: ExpressionKind.Invalid)
+            e:= Expression(kind: Invalid)
         end
 
         while true
-            if acceptToken(token: Token.tkDot)
-                e := Expression(kind: ExpressionKind.Dot, left: e)
+            if acceptToken(token: tkDot)
+                e := Expression(kind: Dot, left: e)
                 e.line := tokeniser.line
                 e.value := expectIdentifier()
-            elseif acceptToken(token: Token.tkOptDot)
-                e := Expression(kind: ExpressionKind.OptDot, left: e)
+                e.tokenPos := tokeniser.start()
+                e.tokenLength := tokeniser.tokenLength()
+            elseif acceptToken(token: tkOptDot)
+                e := Expression(kind: OptDot, left: e)
                 e.line := tokeniser.line
                 e.value := expectIdentifier()
-            elseif acceptToken(token: Token.tkBang)
-                e := Expression(kind: ExpressionKind.Bang, left: e)
-            elseif acceptToken(token: Token.tkLeftParen)
-                e:= Expression(kind: ExpressionKind.Invoke, left: e)
+            elseif acceptToken(token: tkBang)
+                e := Expression(kind: Bang, left: e)
+            elseif acceptToken(token: tkLeftParen)
+                e:= Expression(kind: Invoke, left: e)
                 e.line := tokeniser.line
-                if not acceptToken(token: Token.tkRightParen)
+                if not acceptToken(token: tkRightParen)
                     repeat
                         ident := expectIdentifier()
-                        if acceptToken(token: Token.tkColon)
+                        if acceptToken(token: tkColon)
                             e.identifiers.push(value: ident)
                             e.indexes.push(value: parseExpression())
                         else
-                            p := Expression(kind: ExpressionKind.Identifier)
+                            p := Expression(kind: Identifier)
                             p.value := ident
                             e.indexes.push(value: p)
                             e.identifiers.push(value: ident)
                         end
-                    until not acceptToken(token: Token.tkComma)
-                    expectToken(expected: Token.tkRightParen) 
+                    until not acceptToken(token: tkComma)
+                    expectToken(expected: tkRightParen) 
                 end
-            elseif acceptToken(token: Token.tkLeftBracket)
-                e:= Expression(kind: ExpressionKind.Index, left: e)
+            elseif acceptToken(token: tkLeftBracket)
+                e:= Expression(kind: Index, left: e)
                 e.line := tokeniser.line
-                if not acceptToken(token: Token.tkRightBracket)
+                if not acceptToken(token: tkRightBracket)
 
                     e.indexes.push(value: parseExpression())
 
-                    if acceptToken(token: Token.tkRangeInclusive)
-                        e.kind := ExpressionKind.Slice
-                    elseif acceptToken(token: Token.tkRangeExclusive)
-                        e.kind := ExpressionKind.Slice
+                    if acceptToken(token: tkRangeInclusive)
+                        e.kind := Slice
+                    elseif acceptToken(token: tkRangeExclusive)
+                        e.kind := Slice
                         e.indexes.push(value: parseExpression())
                     else
-                        while acceptToken(token: Token.tkComma)
+                        while acceptToken(token: tkComma)
                             e.indexes.push(value: parseExpression())
                         end
                     end
-                    expectToken(expected: Token.tkRightBracket)
+                    expectToken(expected: tkRightBracket)
                 end
             else
                 return e!

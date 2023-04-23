@@ -14,13 +14,13 @@ class generateTS(block:Statement[]^)
     function getInitValue(expr: Expression?, type: ParsedType?): string
         if expr <> nil
             return generateJSExpression(expr)
-        elseif type?.kind = TypeKind.intType
+        elseif type?.kind = intType
             return "0"
-        elseif type?.kind = TypeKind.arrayType
+        elseif type?.kind = arrayType
             return "[]"
-        elseif type?.kind = TypeKind.boolType
+        elseif type?.kind = boolType
             return "false"
-        elseif type?.kind = TypeKind.mapType
+        elseif type?.kind = mapType
             return "new " + generateTSType(type: type!) + "()"
         else
             return "null"
@@ -35,11 +35,11 @@ class generateTS(block:Statement[]^)
         end
        
         for stmt of block
-            if stmt.kind = StatementKind.ConstStatement or stmt.kind = StatementKind.LetStatement
+            if stmt.kind = ConstStatement or stmt.kind = LetStatement
                 const initValue := getInitValue(expr: stmt.value, type: stmt.type)
                 let declaration := "let"
 
-                if stmt.kind = StatementKind.ConstStatement
+                if stmt.kind = ConstStatement
                     declaration := "const"
                 end
 
@@ -51,7 +51,7 @@ class generateTS(block:Statement[]^)
                 else
                     result.push(value: declaration + " " + stmt.identifier + " = " + initValue + ";")
                 end
-            elseif stmt.kind = StatementKind.IfStatement
+            elseif stmt.kind = IfStatement
                 result.push(value: "if (" + generateJSExpression(expr: stmt.value!) + ") {")
                 generateBlock(block: stmt.block, forClass: false, atRoot: false)
 
@@ -64,29 +64,29 @@ class generateTS(block:Statement[]^)
                     generateBlock(block: stmt.elseBlock, forClass: false, atRoot: false)
                 end
                 result.push(value: "}")
-            elseif stmt.kind = StatementKind.WhileStatement
+            elseif stmt.kind = WhileStatement
                 result.push(value: "while (" + generateJSExpression(expr: stmt.value!) + ") {")
                 generateBlock(block: stmt.block, forClass: false, atRoot: false)
                 result.push(value: "}")
-            elseif stmt.kind = StatementKind.RepeatStatement
+            elseif stmt.kind = RepeatStatement
                 result.push(value: "do {")
                 generateBlock(block: stmt.block, forClass: false, atRoot: false)
                 result.push(value: "} while (!(" + generateJSExpression(expr: stmt.value!) + "))")
-            elseif stmt.kind = StatementKind.ForStatement
+            elseif stmt.kind = ForStatement
                 result.push(value: "for (const " + stmt.identifier + " of " + generateJSExpression(expr: stmt.value!) + ") {")
                 generateBlock(block: stmt.block, forClass: false, atRoot: false)
                 result.push(value: "}")
-            elseif stmt.kind = StatementKind.ForRangeStatement
+            elseif stmt.kind = ForRangeStatement
                 result.push(value: "for (let " + stmt.identifier + " = " + generateJSExpression(expr: stmt.lhs!) + "; " + stmt.identifier + " <= " + generateJSExpression(expr: stmt.value!) + "; " + stmt.identifier + "++) {")
                 generateBlock(block: stmt.block, forClass: false, atRoot: false)
                 result.push(value: "}")
-            elseif stmt.kind = StatementKind.ForRangeExclusiveStatement
+            elseif stmt.kind = ForRangeExclusiveStatement
                 result.push(value: "for (let " + stmt.identifier + " = " + generateJSExpression(expr: stmt.lhs!) + "; " + stmt.identifier + " <= " + generateJSExpression(expr: stmt.value!) + "; " + stmt.identifier + "++) {")
                 generateBlock(block: stmt.block, forClass: false, atRoot: false)
                 result.push(value: "}")
-            elseif stmt.kind = StatementKind.AssignStatement
-                if stmt.lhs!.kind = ExpressionKind.Index
-                    if effectiveType(type: stmt.lhs!.left!.type).kind = TypeKind.mapType
+            elseif stmt.kind = AssignStatement
+                if stmt.lhs!.kind = Index
+                    if effectiveType(type: stmt.lhs!.left!.type).kind = mapType
                         result.push(value: generateJSExpression(expr: stmt.lhs!.left!) + ".set(" + generateJSExpression(expr: stmt.lhs!.indexes[0]) + ", " + generateJSExpression(expr: stmt.value!) + ");")
                     else
                         result.push(value: generateJSExpression(expr: stmt.lhs!.left!) + "[" + generateJSExpression(expr: stmt.lhs!.indexes[0]) + "] = " + generateJSExpression(expr: stmt.value!) + ";")
@@ -94,7 +94,7 @@ class generateTS(block:Statement[]^)
                 else
                     result.push(value: generateJSExpression(expr: stmt.lhs!) + " = " + generateJSExpression(expr: stmt.value!) + ";")
                 end
-            elseif stmt.kind = StatementKind.ClassStatement
+            elseif stmt.kind = ClassStatement
                 result.push(value: exportClassifier + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + ") {")
                 result.push(value: "const _o = {} as class_" + stmt.identifier + ";")
 
@@ -109,7 +109,7 @@ class generateTS(block:Statement[]^)
                 result.push(value: "return _o;")
                 result.push(value: "}")
                 generateTSInterface(definition: stmt)
-            elseif stmt.kind = StatementKind.FunctionStatement
+            elseif stmt.kind = FunctionStatement
                 result.push(value: exportClassifier + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + "):" + generateTSType(type: stmt.type) + " {")
     
                 generateBlock(block: stmt.block, forClass: false, atRoot: false)
@@ -119,18 +119,18 @@ class generateTS(block:Statement[]^)
                 if forClass and stmt.isPublic
                     result.push(value: "_o." + stmt.identifier + " = " + stmt.identifier + ";")
                 end
-            elseif stmt.kind = StatementKind.EnumStatement
+            elseif stmt.kind = EnumStatement
                 result.push(value: "export enum " + stmt.identifier + " {")
 
                 result.push(value: generateJSEnumValues(stmt))
 
                 result.push(value: "};")
-            elseif stmt.kind = StatementKind.ReturnStatement
+            elseif stmt.kind = ReturnStatement
                 result.push(value: "return " + generateJSExpression(expr: stmt.value!) + ";")
-            elseif stmt.kind = StatementKind.ImportStatement
+            elseif stmt.kind = ImportStatement
                 result.push(value: "// import goes here")
                 result.push(value: generateTSImport(stmt))
-            elseif stmt.kind = StatementKind.ExpressionStatement
+            elseif stmt.kind = ExpressionStatement
                 result.push(value: generateJSExpression(expr: stmt.value!) + ";")
             else
                 result.push(value: "unknown")
@@ -139,7 +139,7 @@ class generateTS(block:Statement[]^)
     end
 
     function generateTSInterface(definition: Statement)
-        if definition.kind = StatementKind.ClassStatement
+        if definition.kind = ClassStatement
             result.push(value: "export interface class_" + definition.identifier + " {")
     
             for arg of definition.defnArguments
@@ -149,11 +149,11 @@ class generateTS(block:Statement[]^)
             end
     
             for stmt of definition.block
-                if stmt.kind = StatementKind.FunctionStatement
+                if stmt.kind = FunctionStatement
                     if stmt.isPublic
                         result.push(value: stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + "):" + generateTSType(type: stmt.type) + ";")
                     end
-                elseif stmt.kind = StatementKind.LetStatement or stmt.kind = StatementKind.ConstStatement
+                elseif stmt.kind = LetStatement or stmt.kind = ConstStatement
                     if stmt.isPublic
                         result.push(value: stmt.identifier + ":" + generateTSType(type: stmt.type) + ";")
                     end
@@ -172,69 +172,69 @@ function generateJSExpression(expr: Expression^):string
         return "*nil"
     end
 
-    if expr.type.kind = TypeKind.unknownType and expr.kind <> ExpressionKind.NilConstant
+    if expr.type.kind = unknownType and expr.kind <> NilConstant
         panic(message: "expression not inferred")
     end
 
-    if expr.kind = ExpressionKind.LessThan
+    if expr.kind = LessThan
         return generateJSExpression(expr: expr.left!) + " < " + generateJSExpression(expr: expr.right!)
-    elseif expr.kind = ExpressionKind.GreaterThan
+    elseif expr.kind = GreaterThan
         return generateJSExpression(expr: expr.left!) + " > " + generateJSExpression(expr: expr.right!)
-    elseif expr.kind = ExpressionKind.Equals
+    elseif expr.kind = Equals
         return generateJSExpression(expr: expr.left!) + " == " + generateJSExpression(expr: expr.right!)
-    elseif expr.kind = ExpressionKind.NotEquals
+    elseif expr.kind = NotEquals
         return generateJSExpression(expr: expr.left!) + " != " + generateJSExpression(expr: expr.right!)
-    elseif expr.kind = ExpressionKind.GreaterThanEquals
+    elseif expr.kind = GreaterThanEquals
         return generateJSExpression(expr: expr.left!) + " >= " + generateJSExpression(expr: expr.right!)
-    elseif expr.kind = ExpressionKind.LessThanEquals
+    elseif expr.kind = LessThanEquals
         return generateJSExpression(expr: expr.left!) + " <= " + generateJSExpression(expr: expr.right!)
-    elseif expr.kind = ExpressionKind.Add
+    elseif expr.kind = Add
         return generateJSExpression(expr: expr.left!) + " + " + generateJSExpression(expr: expr.right!)
-    elseif expr.kind = ExpressionKind.Subtract
+    elseif expr.kind = Subtract
         return generateJSExpression(expr: expr.left!) + " - " + generateJSExpression(expr: expr.right!)
-    elseif expr.kind = ExpressionKind.Multiply
+    elseif expr.kind = Multiply
         return generateJSExpression(expr: expr.left!) + " * " + generateJSExpression(expr: expr.right!)
-    elseif expr.kind = ExpressionKind.Divide
+    elseif expr.kind = Divide
         return generateJSExpression(expr: expr.left!) + " / " + generateJSExpression(expr: expr.right!)
-    elseif expr.kind = ExpressionKind.Or
+    elseif expr.kind = Or
         return generateJSExpression(expr: expr.left!) + " || " + generateJSExpression(expr: expr.right!)
-    elseif expr.kind = ExpressionKind.And
+    elseif expr.kind = And
         return generateJSExpression(expr: expr.left!) + " && " + generateJSExpression(expr: expr.right!)
-    elseif expr.kind = ExpressionKind.Dot
+    elseif expr.kind = Dot
         return generateJSExpression(expr: expr.left!) + "." + expr.value
-    elseif expr.kind = ExpressionKind.OptDot
+    elseif expr.kind = OptDot
         return generateJSExpression(expr: expr.left!) + "?." + expr.value
-    elseif expr.kind = ExpressionKind.Not
+    elseif expr.kind = Not
         return "!" + generateJSExpression(expr: expr.left!)
-    elseif expr.kind = ExpressionKind.Bang
+    elseif expr.kind = Bang
         return generateJSExpression(expr: expr.left!) + "!"
-    elseif expr.kind = ExpressionKind.IntConstant
+    elseif expr.kind = IntConstant
         return expr.value!
-    elseif expr.kind = ExpressionKind.NilConstant
+    elseif expr.kind = NilConstant
         return "null"
-    elseif expr.kind = ExpressionKind.BoolConstant
+    elseif expr.kind = BoolConstant
         return expr.value!
-    elseif expr.kind = ExpressionKind.StringConstant
+    elseif expr.kind = StringConstant
         return expr.value!
-    elseif expr.kind = ExpressionKind.Identifier
-        if expr.origin!.kind = IdentifierOriginKind.Field
+    elseif expr.kind = Identifier
+        if expr.origin!.kind = Field
             return "_o." +  expr.value!
         else
             return expr.value!
         end
-    elseif expr.kind = ExpressionKind.Invoke
+    elseif expr.kind = Invoke
         return generateJSExpression(expr: expr.left!) + "(" + generateNamedArguments(type: expr.left!.type, args: expr.indexes, argNames: expr.identifiers) + ")"
-    elseif expr.kind = ExpressionKind.Slice
+    elseif expr.kind = Slice
         return "__slice(" + generateJSExpression(expr: expr.left!) + ", " + generateArguments(args: expr.indexes) + ")"
-    elseif expr.kind = ExpressionKind.Index
+    elseif expr.kind = Index
         if expr.indexes.length = 0
             return "[]"
         end
-        if effectiveType(type: expr.left!.type).kind = TypeKind.stringType
+        if effectiveType(type: expr.left!.type).kind = stringType
             return generateJSExpression(expr: expr.left!) + ".charCodeAt(" + generateArguments(args: expr.indexes) + ")"
-        elseif effectiveType(type: expr.left!.type).kind = TypeKind.mapType
+        elseif effectiveType(type: expr.left!.type).kind = mapType
             return generateJSExpression(expr: expr.left!) + ".get(" + generateArguments(args: expr.indexes) + ")"
-        elseif effectiveType(type: expr.left!.type).kind = TypeKind.arrayType
+        elseif effectiveType(type: expr.left!.type).kind = arrayType
             return generateJSExpression(expr: expr.left!) + "[" + generateArguments(args: expr.indexes) + "]"
         else
             return "__index_get(" + generateJSExpression(expr: expr.left!) + ", " + generateArguments(args: expr.indexes) + ")"
@@ -245,7 +245,7 @@ function generateJSExpression(expr: Expression^):string
 end
 
 function effectiveType(type: ParsedType) : ParsedType
-    if type.kind = TypeKind.pointerType or type.kind = TypeKind.nullableType
+    if type.kind = pointerType or type.kind = nullableType
         return effectiveType(type: type.ref!)
     end
     return type
@@ -256,32 +256,32 @@ function generateTSType(type: ParsedType?): string
         return "any"
     end
 
-    if type.kind = TypeKind.intType
+    if type.kind = intType
         return "number"
-    elseif type.kind = TypeKind.boolType
+    elseif type.kind = boolType
         return "boolean"
-    elseif type.kind = TypeKind.stringType
+    elseif type.kind = stringType
         return "string"
-    elseif type.kind = TypeKind.arrayType
+    elseif type.kind = arrayType
         return generateTSType(type: type.ref) + "[]"
-    elseif type.kind = TypeKind.pointerType
+    elseif type.kind = pointerType
         return generateTSType(type: type.ref)
-    elseif type.kind = TypeKind.nullableType
+    elseif type.kind = nullableType
         return generateTSType(type: type.ref) + " | null"
-    elseif type.kind = TypeKind.objectType
-        if type.stmt?.kind = StatementKind.ClassStatement
+    elseif type.kind = objectType
+        if type.stmt?.kind = ClassStatement
             return "class_" + type.identifier!
-        elseif type.stmt?.kind = StatementKind.EnumStatement
+        elseif type.stmt?.kind = EnumStatement
             return type.identifier!
         end
         return "any"
-    elseif type.kind = TypeKind.mapType
+    elseif type.kind = mapType
         return "Map<" + generateTSType(type: type.mapKeyRef) + "," + generateTSType(type: type.ref) + ">"
-    elseif type.kind = TypeKind.functionType
+    elseif type.kind = functionType
         return "Function"
-    elseif type.kind = TypeKind.voidType
+    elseif type.kind = voidType
         return "void"
-    elseif type.kind = TypeKind.enumType
+    elseif type.kind = enumType
         return type.identifier!
     else
         return "any"
@@ -307,7 +307,7 @@ function generateDefnArguments(args: DefnArgument[]^): string
 end
 
 function generateNamedArguments(type: ParsedType, args: Expression[], argNames: string[]): string
-    if type.kind <> TypeKind.functionType and type.kind <> TypeKind.classType 
+    if type.kind <> functionType and type.kind <> classType 
         panic(message: "not a function type")
     end
     const defnArguments := type.stmt!.defnArguments
@@ -335,7 +335,7 @@ function generateNamedArguments(type: ParsedType, args: Expression[], argNames: 
         let aidx := 0
         while aidx < argNames.length
             if argNames[aidx] = defnArguments[idx].identifier
-                if argType.kind = TypeKind.functionType
+                if argType.kind = functionType
                     return "(" + generateClosureParams(args: argType.stmt!.defnArguments) + ")=>" + generateJSExpression(expr: args[aidx])
                 end
 
@@ -407,21 +407,21 @@ end
 function formatParsedType(type: ParsedType?): string
     if type = nil
         return "no type"
-    elseif type.kind = TypeKind.objectType
+    elseif type.kind = objectType
         if type.stmt = nil
             return "object"
         else
             return "object<" + type.stmt.identifier + ">"
         end
-    elseif type.kind = TypeKind.arrayType
+    elseif type.kind = arrayType
         return "array<" + formatParsedType(type: type.ref) + ">"
-    elseif type.kind = TypeKind.stringType
+    elseif type.kind = stringType
         return "string"
-    elseif type.kind = TypeKind.intType
+    elseif type.kind = intType
         return "int"
-    elseif type.kind = TypeKind.boolType
+    elseif type.kind = boolType
         return "bool"
-    elseif type.kind = TypeKind.nullableType
+    elseif type.kind = nullableType
         return "nullable<" + formatParsedType(type: type.ref) + ">"
     else
         return "unknown"
