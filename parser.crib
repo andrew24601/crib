@@ -250,7 +250,7 @@ class Parser(tokeniser: Tokeniser)
         elseif tk = tkFor
             stmt:= Statement(kind: StatementKind.ForStatement)
             stmt.identifier := expectIdentifier()
-            expectToken(expected: tkOf)
+            expectToken(expected: tkIn)
             stmt.value := parseExpression()
 
             if acceptToken(token: tkRangeInclusive)

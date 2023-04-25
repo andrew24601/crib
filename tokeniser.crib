@@ -3,7 +3,7 @@ public enum Token(tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant,
     tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign,
     tkAnd, tkOr, tkConst, tkVar, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString,
     tkImport, tkFrom,
-    tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang,
+    tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkIn, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang,
     tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals,
     tkLeftBrace, tkRightBrace,
     tkEOF, tkInvalid)
@@ -121,8 +121,8 @@ public class Tokeniser(text: string^)
                 return Token.tkRepeat
             elseif ident = "until"
                 return Token.tkUntil
-            elseif ident = "of"
-                return Token.tkOf
+            elseif ident = "in"
+                return Token.tkIn
             elseif ident = "for"
                 return Token.tkFor
             elseif ident = "nil"

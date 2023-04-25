@@ -9,7 +9,7 @@ function cloneScope(scope: IdentifierOrigin[string]?): IdentifierOrigin[string]
     if scope = nil
         return newScope
     end
-    for key of scope.keys()
+    for key in scope.keys()
         newScope[key] := scope[key]!
     end
     return newScope
@@ -18,7 +18,7 @@ end
 function getBlockDefinitions(block: Statement[], outerScope: IdentifierOrigin[string]?): IdentifierOrigin[string]
     const scope := cloneScope(scope: outerScope)
 
-    for stmt of block
+    for stmt in block
         if stmt.kind = FunctionStatement
             scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Function, type: ParsedType(kind: functionType, stmt), isMutable: false)
         elseif stmt.kind = ClassStatement
@@ -34,7 +34,7 @@ end
 function inferPublicInterface(module: Statement[], outerScope: IdentifierOrigin[string]): IdentifierOrigin[string]
     const scope := getBlockDefinitions(block: module, outerScope)
 
-    for stmt of module
+    for stmt in module
         if stmt.kind = ClassStatement or stmt.kind = FunctionStatement
             inferClassFunctionInterface(scope, stmt)
         elseif stmt.kind = LetStatement or stmt.kind = ConstStatement
@@ -57,16 +57,16 @@ function effectiveType(type: ParsedType) : ParsedType
 end
 
 public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[string], forClass: bool)
-    for stmt of block
+    for stmt in block
         if stmt.kind = ClassStatement or stmt.kind = FunctionStatement
             inferClassFunctionInterface(scope, stmt)
         end
     end
 
-    for stmt of block
+    for stmt in block
         if stmt.kind = ClassStatement or stmt.kind = FunctionStatement
             const innerScope := cloneScope(scope)
-            for arg of stmt.defnArguments
+            for arg in stmt.defnArguments
                 if stmt.kind = ClassStatement and arg.isPublic
                     innerScope[arg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: arg.type, isMutable: true)
                 else
@@ -113,7 +113,7 @@ public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[st
         elseif stmt.kind = IfStatement
             inferExpressionType(expr: stmt.value!, scope)
             inferBlock(block: stmt.block, outerScope: scope, forClass)
-            for ei of stmt.elseIf
+            for ei in stmt.elseIf
                 inferExpressionType(expr: ei.value, scope)
                 inferBlock(block: ei.block, outerScope: scope, forClass)
             end
@@ -292,7 +292,7 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], 
                     if defn.type.kind = functionType
                         const lambdaScope := cloneScope(scope)
                         const scopeArgs := defn.type.stmt!.defnArguments
-                        for scopeArg of scopeArgs
+                        for scopeArg in scopeArgs
                             lambdaScope[scopeArg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type:scopeArg.type, isMutable: true) 
                         end
 
@@ -315,7 +315,7 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], 
         else
             panic(message: "Not an array type")
         end
-        for arg of expr.indexes
+        for arg in expr.indexes
             inferExpressionType(expr: arg, scope)
         end
     elseif expr.kind = ArrayConstant
@@ -329,7 +329,7 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], 
         else
             panic(message: "Not an array type")
         end
-        for arg of expr.indexes
+        for arg in expr.indexes
             inferExpressionType(expr: arg, scope)
         end
     end
@@ -340,12 +340,12 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], 
 end
 
 function getFieldType(classDefinition: Statement, identifier: string): ParsedType
-    for arg of classDefinition.defnArguments
+    for arg in classDefinition.defnArguments
         if arg.identifier = identifier
             return arg.type
         end
     end
-    for stmt of classDefinition.block
+    for stmt in classDefinition.block
         if stmt.kind = ConstStatement or stmt.kind = LetStatement
             if stmt.identifier = identifier
                 return stmt.type
@@ -370,7 +370,7 @@ end
 
 function inferClassFunctionInterface(scope: IdentifierOrigin[string], stmt: Statement)
     resolveType(type: stmt.type, scope)
-    for arg of stmt.defnArguments
+    for arg in stmt.defnArguments
         resolveType(type: arg.type, scope)
     end
     if stmt.kind = ClassStatement

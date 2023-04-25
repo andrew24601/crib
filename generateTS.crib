@@ -34,7 +34,7 @@ class generateTS(block:Statement[]^)
             exportClassifier := "export "
         end
        
-        for stmt of block
+        for stmt in block
             if stmt.kind = ConstStatement or stmt.kind = LetStatement
                 const initValue := getInitValue(expr: stmt.value, type: stmt.type)
                 var declaration := "let"
@@ -55,7 +55,7 @@ class generateTS(block:Statement[]^)
                 result.push(value: "if (" + generateJSExpression(expr: stmt.value!) + ") {")
                 generateBlock(block: stmt.block, forClass: false, atRoot: false)
 
-                for ei of stmt.elseIf
+                for ei in stmt.elseIf
                     result.push(value: "} else if (" + generateJSExpression(expr: ei.value) + ") {")
                     generateBlock(block: ei.block, forClass: false, atRoot: false)
                 end
@@ -98,7 +98,7 @@ class generateTS(block:Statement[]^)
                 result.push(value: exportClassifier + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + ") {")
                 result.push(value: "const _o = {} as class_" + stmt.identifier + ";")
 
-                for arg of stmt.defnArguments
+                for arg in stmt.defnArguments
                     if arg.isPublic
                         result.push(value: "_o." + arg.identifier + " = " + arg.identifier + ";")
                     end
@@ -142,13 +142,13 @@ class generateTS(block:Statement[]^)
         if definition.kind = ClassStatement
             result.push(value: "export interface class_" + definition.identifier + " {")
     
-            for arg of definition.defnArguments
+            for arg in definition.defnArguments
                 if arg.isPublic
                     result.push(value: arg.identifier + ":" + generateTSType(type: arg.type) + ";")
                 end
             end
     
-            for stmt of definition.block
+            for stmt in definition.block
                 if stmt.kind = FunctionStatement
                     if stmt.isPublic
                         result.push(value: stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + "):" + generateTSType(type: stmt.type) + ";")
