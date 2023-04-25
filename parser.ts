@@ -148,6 +148,15 @@ return true;
 tokeniser.putback();
 return false;
 }
+function acceptIdentifierToken(token:Token,text:string):boolean {
+ // unknown
+const tk: Token = tokeniser.nextToken();
+if (tk == 0 && tokeniser.value() == text) {
+return true;
+}
+tokeniser.putback();
+return false;
+}
 function expectToken(expected:Token):string {
  // unknown
 const tk: Token = tokeniser.nextToken();
@@ -198,8 +207,6 @@ return type;
 return type;
 }
 function parseStatement():class_Statement | null {
- // unknown
-let tk: Token = tokeniser.nextToken();
  // nullable<object<Statement>>
 let stmt: class_Statement | null = null;
  // nullable<string>
@@ -212,6 +219,8 @@ let value: class_Expression | null = null;
 let block: class_Statement[] = [];
  // bool
 let isPublic: boolean = false;
+ // unknown
+let tk: Token = tokeniser.nextToken();
 if (tk == 27 || tk == 28 || tk == 29 || tk == 40 || tk == 59) {
 tokeniser.putback();
 return null;
@@ -219,6 +228,12 @@ return null;
 if (tk == 44) {
 isPublic = true;
 tk = tokeniser.nextToken();
+}
+if (tk == 0) {
+identifier = tokeniser.value();
+if (identifier == "var") {
+tk = 26;
+}
 }
 if (tk == 25 || tk == 26) {
 identifier = expectIdentifier();

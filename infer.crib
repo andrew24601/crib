@@ -146,7 +146,7 @@ function inferPublicExpressionType(expr: Expression, scope: IdentifierOrigin[str
 end
 
 function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], impliedType: ParsedType^ := nil): ParsedType
-    let returnType: ParsedType?
+    var returnType: ParsedType?
     if expr.kind = Identifier
         if impliedType?.kind = enumType
             const enumDef := impliedType.stmt!
@@ -277,13 +277,13 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], 
             panic(message: "Not a function or class type")
         end
         const argumentDefs := type.stmt!.defnArguments
-        let aidx := 0
+        var aidx := 0
         while aidx < expr.indexes.length
             const arg := expr.indexes[aidx]
             const name := expr.identifiers[aidx]
 
-            let didx := 0
-            let found := false
+            var didx := 0
+            var found := false
             while didx < argumentDefs.length
                 const defn := argumentDefs[didx]
                 if defn.identifier = name

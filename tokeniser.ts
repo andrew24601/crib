@@ -1,7 +1,7 @@
 import { __index_get, __index_set, __slice, panic } from "./runtime"
 import { generateTSImport, importScope } from "./tboot"
 export enum Token {
-tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret, tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign, tkAnd, tkOr, tkConst, tkLet, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString, tkImport, tkFrom, tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang, tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals, tkLeftBrace, tkRightBrace, tkEOF, tkInvalid
+tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret, tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign, tkAnd, tkOr, tkConst, tkVar, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString, tkImport, tkFrom, tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang, tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals, tkLeftBrace, tkRightBrace, tkEOF, tkInvalid
 };
 export function isWhitespace(ch:number):boolean {
 if (ch == 32 || ch == 13 || ch == 10 || ch == 9) {
@@ -78,9 +78,7 @@ while (pos < length && isTrailingIdentifier(text.charCodeAt(pos))) {
 pos = pos + 1;
 }
 ident = __slice(text, tokenStart, pos);
-if (ident == "let") {
-return Token.tkLet;
-} else if (ident == "const") {
+if (ident == "const") {
 return Token.tkConst;
 } else if (ident == "function") {
 return Token.tkFunction;

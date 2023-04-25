@@ -13,14 +13,14 @@ public enum TypeKind(intType, doubleType, boolType, stringType, objectType, arra
 const sharedUnknownType := ParsedType(kind: unknownType)
 
 public class Expression(public kind: ExpressionKind, public left: Expression? := nil, public right: Expression? := nil, tokeniser: Tokeniser? := nil)
-    public let value: string?
-    public let indexes: Expression[]
-    public let identifiers: string[]
-    public let type: ParsedType := sharedUnknownType
-    public let line := 0
-    public let tokenPos := 0
-    public let tokenLength := 0
-    public let origin: IdentifierOrigin?
+    public var value: string?
+    public var indexes: Expression[]
+    public var identifiers: string[]
+    public var type: ParsedType := sharedUnknownType
+    public var line := 0
+    public var tokenPos := 0
+    public var tokenLength := 0
+    public var origin: IdentifierOrigin?
 
     if tokeniser <> nil
         line := tokeniser.line
@@ -30,33 +30,42 @@ public class Expression(public kind: ExpressionKind, public left: Expression? :=
 end
 
 public class ParsedType(public kind: TypeKind, public ref: ParsedType? := nil, public stmt: Statement? := nil)
-    public let identifier: string?
-    public let mapKeyRef: ParsedType?
+    public var identifier: string?
+    public var mapKeyRef: ParsedType?
 end
 
 public class DefnArgument(public identifier: string, public type: ParsedType, public isPublic: bool)
-    public let value: Expression?
+    public var value: Expression?
 end
 
 public class ElseIfClause(public value: Expression, public block: Statement[]) end
 
 public class Statement(public kind: StatementKind)
-    public let identifier: string?
-    public let type: ParsedType := sharedUnknownType
-    public let value: Expression?
-    public let lhs: Expression?
-    public let block: Statement[]
-    public let elseIf: ElseIfClause[]
-    public let elseBlock: Statement[]
-    public let identifierList: string[]
-    public let defnArguments: DefnArgument[]
-    public let isPublic: bool
+    public var identifier: string?
+    public var type: ParsedType := sharedUnknownType
+    public var value: Expression?
+    public var lhs: Expression?
+    public var block: Statement[]
+    public var elseIf: ElseIfClause[]
+    public var elseBlock: Statement[]
+    public var identifierList: string[]
+    public var defnArguments: DefnArgument[]
+    public var isPublic: bool
 end
 
 class Parser(tokeniser: Tokeniser)
     function acceptToken(token: Token): bool
         const tk := tokeniser.nextToken()
         if tk = token
+            return true
+        end
+        tokeniser.putback()
+        return false
+    end
+
+    function acceptIdentifierToken(token: Token, text: string): bool
+        const tk := tokeniser.nextToken()
+        if tk = tkIdentifier and tokeniser.value() = text
             return true
         end
         tokeniser.putback()
@@ -76,9 +85,9 @@ class Parser(tokeniser: Tokeniser)
     end
 
     function parseType: ParsedType
-        let reference := false
+        var reference := false
         const tk := tokeniser.nextToken()
-        let type: ParsedType := sharedUnknownType
+        var type: ParsedType := sharedUnknownType
         const identifier := tokeniser.value()
 
         if tk = tkInt
@@ -112,13 +121,14 @@ class Parser(tokeniser: Tokeniser)
     end
 
     function parseStatement:Statement?
-        let tk := tokeniser.nextToken()
-        let stmt: Statement?
-        let identifier: string?
-        let type: ParsedType := sharedUnknownType
-        let value: Expression?
-        let block: Statement[]
-        let isPublic := false
+        var stmt: Statement?
+        var identifier: string?
+        var type: ParsedType := sharedUnknownType
+        var value: Expression?
+        var block: Statement[]
+        var isPublic := false
+
+        var tk := tokeniser.nextToken()
 
         if tk = tkElse or tk = tkElseif or tk = tkEnd or tk = tkUntil or tk = tkEOF
             tokeniser.putback()
@@ -130,7 +140,14 @@ class Parser(tokeniser: Tokeniser)
             tk := tokeniser.nextToken()
         end
 
-        if tk = tkConst or tk = tkLet
+        if tk = tkIdentifier
+            identifier := tokeniser.value()
+            if identifier = "var"
+                tk := tkVar
+            end
+        end
+
+        if tk = tkConst or tk = tkVar
             identifier := expectIdentifier()
             if acceptToken(token: tkColon)
                 type := parseType()
@@ -293,7 +310,7 @@ class Parser(tokeniser: Tokeniser)
     public function parseBlock(): Statement[]
         const result: Statement[]
 
-        let stmt: Statement? := parseStatement()
+        var stmt: Statement? := parseStatement()
         while stmt <> nil
             result.push(value: stmt)
             stmt := parseStatement()
@@ -303,7 +320,7 @@ class Parser(tokeniser: Tokeniser)
     end
 
     function parseDefnArgument(): DefnArgument
-        let isPublic := false
+        var isPublic := false
         if acceptToken(token: tkPublic)
             isPublic := true
         end
@@ -334,8 +351,8 @@ class Parser(tokeniser: Tokeniser)
     end
 
     function parseExpression: Expression
-        let left := parseAndExpression()
-        let tk := tokeniser.nextToken()
+        var left := parseAndExpression()
+        var tk := tokeniser.nextToken()
         while tk = tkOr
             left := Expression(kind: Or, left, right: parseAndExpression())
             tk := tokeniser.nextToken()
@@ -345,8 +362,8 @@ class Parser(tokeniser: Tokeniser)
     end
 
     function parseAndExpression: Expression
-        let left := parseComparisonExpression()
-        let tk := tokeniser.nextToken()
+        var left := parseComparisonExpression()
+        var tk := tokeniser.nextToken()
         while tk = tkAnd
             left := Expression(kind: And, left, right: parseComparisonExpression())
             tk := tokeniser.nextToken()
@@ -356,8 +373,8 @@ class Parser(tokeniser: Tokeniser)
     end
 
     function parseComparisonExpression: Expression
-        let left := parseAddSub()
-        let tk := tokeniser.nextToken()
+        var left := parseAddSub()
+        var tk := tokeniser.nextToken()
 
         if tk = tkLessThan
             left := Expression(kind: LessThan, left, right: parseAddSub())
@@ -378,8 +395,8 @@ class Parser(tokeniser: Tokeniser)
     end
 
     function parseAddSub: Expression
-        let left := parseTerm()
-        let tk := tokeniser.nextToken()
+        var left := parseTerm()
+        var tk := tokeniser.nextToken()
         while tk = tkPlus or tk = tkMinus
             if tk = tkPlus
                 left := Expression(kind: Add, left, right: parseTerm())
@@ -393,8 +410,8 @@ class Parser(tokeniser: Tokeniser)
     end
 
     function parseTerm: Expression
-        let left := parseFactor()
-        let tk := tokeniser.nextToken()
+        var left := parseFactor()
+        var tk := tokeniser.nextToken()
         while tk = tkTimes or tk = tkSlash
             if tk = tkTimes
                 left := Expression(kind: Multiply, left, right: parseFactor())
@@ -409,9 +426,9 @@ class Parser(tokeniser: Tokeniser)
 
     function parseFactor: Expression
         const tk := tokeniser.nextToken()
-        let e:Expression?
-        let p:Expression?
-        let ident: string?
+        var e:Expression?
+        var p:Expression?
+        var ident: string?
         if tk = tkIntConstant
             e := Expression(kind: IntConstant, tokeniser)
             e.value := tokeniser.value()

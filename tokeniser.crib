@@ -1,7 +1,7 @@
 public enum Token(tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, 
     tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret,
     tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign,
-    tkAnd, tkOr, tkConst, tkLet, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString,
+    tkAnd, tkOr, tkConst, tkVar, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString,
     tkImport, tkFrom,
     tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkOf, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang,
     tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals,
@@ -29,11 +29,11 @@ end
 
 public class Tokeniser(text: string^)
     const length := text.length
-    let pos := 0
-    let tokenStart := 0
-    let hasPutback := false
-    let lastToken: Token?
-    public let line := 1
+    var pos := 0
+    var tokenStart := 0
+    var hasPutback := false
+    var lastToken: Token?
+    public var line := 1
 
     public function nextToken(): Token
         if hasPutback
@@ -61,7 +61,7 @@ public class Tokeniser(text: string^)
     end
 
     function parseNextToken(): Token
-        let ident: string?
+        var ident: string?
     
         while pos < length and isWhitespace(ch: text[pos])
             if text[pos] = 10
@@ -75,7 +75,7 @@ public class Tokeniser(text: string^)
         end
 
         tokenStart := pos
-        let ch := text[pos]
+        var ch := text[pos]
         pos := pos + 1
 
         if isLeadingIdentifier(ch: ch)
@@ -85,9 +85,7 @@ public class Tokeniser(text: string^)
 
             ident := text[tokenStart..<pos]
 
-            if ident = "let"
-                return Token.tkLet
-            elseif ident = "const"
+            if ident = "const"
                 return Token.tkConst
             elseif ident = "function"
                 return Token.tkFunction
@@ -161,7 +159,7 @@ public class Tokeniser(text: string^)
             return Token.tkStringConstant
         end
 
-        let match := Token.tkInvalid
+        var match := Token.tkInvalid
         if ch = 40
             match := Token.tkLeftParen
         elseif ch = 41
