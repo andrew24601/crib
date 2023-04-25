@@ -32,6 +32,8 @@ let hasPutback: boolean = false;
 let lastToken: Token | null = null;
  // int
 _o.line = 1;
+ // int
+let lineStart: number = 1;
 function nextToken():Token {
 if (hasPutback) {
 hasPutback = false;
@@ -50,7 +52,7 @@ return __slice(text, tokenStart, pos);
 }
 _o.value = value;
 function start():number {
-return tokenStart;
+return tokenStart - lineStart;
 }
 _o.start = start;
 function tokenLength():number {
@@ -63,11 +65,12 @@ let ident: string | null = null;
 while (pos < length && isWhitespace(text.charCodeAt(pos))) {
 if (text.charCodeAt(pos) == 10) {
 _o.line = _o.line + 1;
+lineStart = pos + 1;
 }
 pos = pos + 1;
 }
 if (pos == length) {
-return Token.tkEOF;
+return 59;
 }
 tokenStart = pos;
  // int
@@ -79,65 +82,65 @@ pos = pos + 1;
 }
 ident = __slice(text, tokenStart, pos);
 if (ident == "const") {
-return Token.tkConst;
+return 25;
 } else if (ident == "function") {
-return Token.tkFunction;
+return 6;
 } else if (ident == "and") {
-return Token.tkAnd;
+return 23;
 } else if (ident == "or") {
-return Token.tkOr;
+return 24;
 } else if (ident == "else") {
-return Token.tkElse;
+return 27;
 } else if (ident == "elseif") {
-return Token.tkElseif;
+return 28;
 } else if (ident == "end") {
-return Token.tkEnd;
+return 29;
 } else if (ident == "bool") {
-return Token.tkBool;
+return 32;
 } else if (ident == "string") {
-return Token.tkString;
+return 33;
 } else if (ident == "double") {
-return Token.tkDouble;
+return 31;
 } else if (ident == "int") {
-return Token.tkInt;
+return 30;
 } else if (ident == "enum") {
-return Token.tkEnum;
+return 36;
 } else if (ident == "class") {
-return Token.tkClass;
+return 5;
 } else if (ident == "if") {
-return Token.tkIf;
+return 37;
 } else if (ident == "return") {
-return Token.tkReturn;
+return 7;
 } else if (ident == "while") {
-return Token.tkWhile;
+return 38;
 } else if (ident == "repeat") {
-return Token.tkRepeat;
+return 39;
 } else if (ident == "until") {
-return Token.tkUntil;
+return 40;
 } else if (ident == "in") {
-return Token.tkIn;
+return 41;
 } else if (ident == "for") {
-return Token.tkFor;
+return 42;
 } else if (ident == "nil") {
-return Token.tkNil;
+return 43;
 } else if (ident == "not") {
-return Token.tkNot;
+return 45;
 } else if (ident == "import") {
-return Token.tkImport;
+return 34;
 } else if (ident == "from") {
-return Token.tkFrom;
+return 35;
 } else if (ident == "true" || ident == "false") {
-return Token.tkBoolConstant;
+return 2;
 } else if (ident == "public") {
-return Token.tkPublic;
+return 44;
 }
-return Token.tkIdentifier;
+return 0;
 }
 if (isDigit(ch)) {
 while (pos < length && isDigit(text.charCodeAt(pos))) {
 pos = pos + 1;
 }
-return Token.tkIntConstant;
+return 1;
 }
 if (ch == 39 || ch == 34) {
 while (pos < length && text.charCodeAt(pos) != ch) {
@@ -146,84 +149,84 @@ pos = pos + 1;
 if (pos < length) {
 pos = pos + 1;
 }
-return Token.tkStringConstant;
+return 4;
 }
  // unknown
-let match: Token = Token.tkInvalid;
+let match: Token = 60;
 if (ch == 40) {
-match = Token.tkLeftParen;
+match = 8;
 } else if (ch == 41) {
-match = Token.tkRightParen;
+match = 9;
 } else if (ch == 33) {
-match = Token.tkBang;
+match = 47;
 } else if (ch == 59) {
-match = Token.tkSemiColon;
+match = 10;
 } else if (ch == 44) {
-match = Token.tkComma;
+match = 11;
 } else if (ch == 91) {
-match = Token.tkLeftBracket;
+match = 12;
 } else if (ch == 93) {
-match = Token.tkRightBracket;
+match = 13;
 } else if (ch == 61) {
-match = Token.tkEquals;
+match = 15;
 } else if (ch == 123) {
-match = Token.tkLeftBrace;
+match = 57;
 } else if (ch == 125) {
-match = Token.tkRightBrace;
+match = 58;
 } else if (ch == 38) {
-match = Token.tkAmpersand;
+match = 20;
 } else if (ch == 46) {
 if (pos < length && text.charCodeAt(pos) == 46) {
 pos = pos + 1;
 if (pos < length && text.charCodeAt(pos) == 60) {
 pos = pos + 1;
-match = Token.tkRangeExclusive;
+match = 18;
 } else {
-match = Token.tkRangeInclusive;
+match = 19;
 }
 } else {
-match = Token.tkDot;
+match = 16;
 }
 } else if (ch == 58) {
 if (pos < length && text.charCodeAt(pos) == 61) {
 pos = pos + 1;
-match = Token.tkAssign;
+match = 22;
 } else {
-match = Token.tkColon;
+match = 21;
 }
 } else if (ch == 63) {
 if (pos < length && text.charCodeAt(pos) == 46) {
 pos = pos + 1;
-match = Token.tkOptDot;
+match = 17;
 } else {
-match = Token.tkQuestionMark;
+match = 46;
 }
 } else if (ch == 43) {
-match = Token.tkPlus;
+match = 48;
 } else if (ch == 45) {
-match = Token.tkMinus;
+match = 49;
 } else if (ch == 42) {
-match = Token.tkTimes;
+match = 50;
 } else if (ch == 94) {
-match = Token.tkCaret;
+match = 14;
 } else if (ch == 47) {
-match = Token.tkSlash;
+match = 51;
 } else if (ch == 60) {
 if (pos < length && text.charCodeAt(pos) == 61) {
 pos = pos + 1;
-match = Token.tkLessThanEquals;
+match = 53;
 } else if (pos < length && text.charCodeAt(pos) == 62) {
 pos = pos + 1;
-match = Token.tkNotEquals;
+match = 52;
 } else {
-match = Token.tkLessThan;
+match = 54;
 }
 } else if (ch == 62) {
 if (pos < length && text.charCodeAt(pos) == 61) {
 pos = pos + 1;
-match = Token.tkGreaterThanEquals;
+match = 56;
 } else {
-match = Token.tkGreaterThan;
+match = 55;
 }
 }
 return match;

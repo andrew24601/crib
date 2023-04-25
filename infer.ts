@@ -64,7 +64,9 @@ return effectiveType(type.ref!);
 }
 return type;
 }
-export function applyScopeToBlock(block:class_Statement[],scope:Map<string,class_IdentifierOrigin>,forClass:boolean):void {
+export function applyScopeToBlock(block:class_Statement[],scope:Map<string,class_IdentifierOrigin>,owner:class_Statement):void {
+ // bool
+const forClass: boolean = owner.kind == 3;
 for (const stmt of block) {
 if (stmt.kind == 3 || stmt.kind == 4) {
 inferClassFunctionInterface(scope, stmt);
@@ -81,10 +83,11 @@ innerScope.set(arg.identifier, IdentifierOrigin(IdentifierOriginKind.Field, arg.
 innerScope.set(arg.identifier, IdentifierOrigin(IdentifierOriginKind.Parameter, arg.type, true));
 }
 }
-inferBlock(stmt.block, innerScope, stmt.kind == 3);
+inferBlock(stmt.block, innerScope, stmt);
 } else if (stmt.kind == 1 || stmt.kind == 0) {
 if (stmt.value != null) {
-inferExpressionType(stmt.value!, scope, null);
+resolveType(stmt.type, scope);
+inferExpressionType(stmt.value!, scope, stmt.type);
 }
 if (stmt.type.kind == 16) {
 stmt.type = inferExpressionType(stmt.value!, scope, null);
@@ -101,13 +104,13 @@ scope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Parameter, stm
 }
 } else if (stmt.kind == 5) {
 if (stmt.value != null) {
-stmt.value.type = inferExpressionType(stmt.value!, scope, null);
+stmt.value.type = inferExpressionType(stmt.value!, scope, owner.type);
 }
 } else if (stmt.kind == 7) {
 inferExpressionType(stmt.value!, scope, null);
-inferBlock(stmt.block, scope, forClass);
+inferBlock(stmt.block, scope, owner);
 } else if (stmt.kind == 11) {
-inferBlock(stmt.block, scope, forClass);
+inferBlock(stmt.block, scope, owner);
 inferExpressionType(stmt.value!, scope, null);
 } else if (stmt.kind == 12) {
 inferExpressionType(stmt.value!, scope, null);
@@ -119,15 +122,15 @@ panic("For loop must iterate over an array");
  // unknown
 const innerScope: Map<string,class_IdentifierOrigin> = cloneScope(scope);
 innerScope.set(stmt.identifier!, IdentifierOrigin(IdentifierOriginKind.Parameter, sequenceType.ref!, true));
-inferBlock(stmt.block, innerScope, forClass);
+inferBlock(stmt.block, innerScope, owner);
 } else if (stmt.kind == 6) {
 inferExpressionType(stmt.value!, scope, null);
-inferBlock(stmt.block, scope, forClass);
+inferBlock(stmt.block, scope, owner);
 for (const ei of stmt.elseIf) {
 inferExpressionType(ei.value, scope, null);
-inferBlock(ei.block, scope, forClass);
+inferBlock(ei.block, scope, owner);
 }
-inferBlock(stmt.elseBlock!, scope, forClass);
+inferBlock(stmt.elseBlock!, scope, owner);
 } else if (stmt.kind == 10) {
 inferExpressionType(stmt.value!, scope, null);
 } else if (stmt.kind == 9) {
@@ -384,10 +387,10 @@ return ParsedType(12, null, stmt);
 panic("Field " + identifier + " not found in class " + classDefinition.identifier);
 return ParsedType(17, null, null);
 }
-export function inferBlock(block:class_Statement[],outerScope:Map<string,class_IdentifierOrigin>,forClass:boolean):Map<string,class_IdentifierOrigin> {
+export function inferBlock(block:class_Statement[],outerScope:Map<string,class_IdentifierOrigin>,owner:class_Statement):Map<string,class_IdentifierOrigin> {
  // unknown
 const scope: Map<string,class_IdentifierOrigin> = getBlockDefinitions(block, outerScope);
-applyScopeToBlock(block, scope, forClass);
+applyScopeToBlock(block, scope, owner);
 return scope;
 }
 export function inferClassFunctionInterface(scope:Map<string,class_IdentifierOrigin>,stmt:class_Statement):void {

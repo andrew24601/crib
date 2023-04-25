@@ -34,6 +34,7 @@ public class Tokeniser(text: string^)
     var hasPutback := false
     var lastToken: Token?
     public var line := 1
+    var lineStart := 1
 
     public function nextToken(): Token
         if hasPutback
@@ -53,7 +54,7 @@ public class Tokeniser(text: string^)
     end
 
     public function start(): int
-        return tokenStart
+        return tokenStart - lineStart
     end
 
     public function tokenLength(): int
@@ -66,12 +67,13 @@ public class Tokeniser(text: string^)
         while pos < length and isWhitespace(ch: text[pos])
             if text[pos] = 10
                 line := line + 1
+                lineStart := pos + 1
             end
             pos := pos + 1
         end
 
         if pos = length
-            return Token.tkEOF
+            return tkEOF
         end
 
         tokenStart := pos
@@ -86,67 +88,67 @@ public class Tokeniser(text: string^)
             ident := text[tokenStart..<pos]
 
             if ident = "const"
-                return Token.tkConst
+                return tkConst
             elseif ident = "function"
-                return Token.tkFunction
+                return tkFunction
             elseif ident = "and"
-                return Token.tkAnd
+                return tkAnd
             elseif ident = "or"
-                return Token.tkOr
+                return tkOr
             elseif ident = "else"
-                return Token.tkElse
+                return tkElse
             elseif ident = "elseif"
-                return Token.tkElseif
+                return tkElseif
             elseif ident = "end"
-                return Token.tkEnd
+                return tkEnd
             elseif ident = "bool"
-                return Token.tkBool
+                return tkBool
             elseif ident = "string"
-                return Token.tkString
+                return tkString
             elseif ident = "double"
-                return Token.tkDouble
+                return tkDouble
             elseif ident = "int"
-                return Token.tkInt
+                return tkInt
             elseif ident = "enum"
-                return Token.tkEnum
+                return tkEnum
             elseif ident = "class"
-                return Token.tkClass
+                return tkClass
             elseif ident = "if"
-                return Token.tkIf
+                return tkIf
             elseif ident = "return"
-                return Token.tkReturn
+                return tkReturn
             elseif ident = "while"
-                return Token.tkWhile
+                return tkWhile
             elseif ident = "repeat"
-                return Token.tkRepeat
+                return tkRepeat
             elseif ident = "until"
-                return Token.tkUntil
+                return tkUntil
             elseif ident = "in"
-                return Token.tkIn
+                return tkIn
             elseif ident = "for"
-                return Token.tkFor
+                return tkFor
             elseif ident = "nil"
-                return Token.tkNil
+                return tkNil
             elseif ident = "not"
-                return Token.tkNot
+                return tkNot
             elseif ident = "import"
-                return Token.tkImport
+                return tkImport
             elseif ident = "from"
-                return Token.tkFrom
+                return tkFrom
             elseif ident = "true" or ident = "false"
-                return Token.tkBoolConstant
+                return tkBoolConstant
             elseif ident = "public"
-                return Token.tkPublic
+                return tkPublic
             end
 
-            return Token.tkIdentifier
+            return tkIdentifier
         end
 
         if isDigit(ch: ch)
             while pos < length and isDigit(ch: text[pos])
                 pos := pos + 1
             end
-            return Token.tkIntConstant
+            return tkIntConstant
         end
 
         if ch = 39 or ch = 34
@@ -156,84 +158,84 @@ public class Tokeniser(text: string^)
             if pos < length
                 pos := pos + 1
             end
-            return Token.tkStringConstant
+            return tkStringConstant
         end
 
-        var match := Token.tkInvalid
+        var match:Token := tkInvalid
         if ch = 40
-            match := Token.tkLeftParen
+            match := tkLeftParen
         elseif ch = 41
-            match := Token.tkRightParen
+            match := tkRightParen
         elseif ch = 33
-            match := Token.tkBang
+            match := tkBang
         elseif ch = 59
-            match := Token.tkSemiColon
+            match := tkSemiColon
         elseif ch = 44
-            match := Token.tkComma
+            match := tkComma
         elseif ch = 91
-            match := Token.tkLeftBracket
+            match := tkLeftBracket
         elseif ch = 93
-            match := Token.tkRightBracket
+            match := tkRightBracket
         elseif ch = 61
-            match := Token.tkEquals
+            match := tkEquals
         elseif ch = 123
-            match := Token.tkLeftBrace
+            match := tkLeftBrace
         elseif ch = 125
-            match := Token.tkRightBrace
+            match := tkRightBrace
         elseif ch = 38
-            match := Token.tkAmpersand
+            match := tkAmpersand
         elseif ch = 46
             if pos < length and text[pos] = 46
                 pos := pos + 1
                 if pos < length and text[pos] = 60
                     pos := pos + 1
-                    match := Token.tkRangeExclusive
+                    match := tkRangeExclusive
                 else
-                    match := Token.tkRangeInclusive
+                    match := tkRangeInclusive
                 end
             else
-                match := Token.tkDot
+                match := tkDot
             end
         elseif ch = 58
             if pos < length and text[pos] = 61
                 pos := pos + 1
-                match := Token.tkAssign
+                match := tkAssign
             else
-                match := Token.tkColon
+                match := tkColon
             end
         elseif ch = 63
             if pos < length and text[pos] = 46
                 pos := pos + 1
-                match := Token.tkOptDot
+                match := tkOptDot
             else
-                match := Token.tkQuestionMark
+                match := tkQuestionMark
             end
         elseif ch = 43
-            match := Token.tkPlus
+            match := tkPlus
         elseif ch = 45
-            match := Token.tkMinus
+            match := tkMinus
         elseif ch = 42
-            match := Token.tkTimes
+            match := tkTimes
         elseif ch = 94
-            match := Token.tkCaret
+            match := tkCaret
         elseif ch = 47
-            match := Token.tkSlash
+            match := tkSlash
         elseif ch = 60
             if pos < length and text[pos] = 61
                 pos := pos + 1
-                match := Token.tkLessThanEquals
+                match := tkLessThanEquals
             elseif pos < length and text[pos] = 62
                 pos := pos + 1
-                match := Token.tkNotEquals
+                match := tkNotEquals
             else
-                match := Token.tkLessThan
+                match := tkLessThan
             end
         elseif ch = 62
             if pos < length and text[pos] = 61
                 pos := pos + 1
-                match := Token.tkGreaterThanEquals
+                match := tkGreaterThanEquals
             else
-                match := Token.tkGreaterThan
+                match := tkGreaterThan
             end
         end
 

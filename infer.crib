@@ -56,7 +56,8 @@ function effectiveType(type: ParsedType) : ParsedType
     return type
 end
 
-public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[string], forClass: bool)
+public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[string], owner: Statement^)
+    const forClass := owner.kind = ClassStatement
     for stmt in block
         if stmt.kind = ClassStatement or stmt.kind = FunctionStatement
             inferClassFunctionInterface(scope, stmt)
@@ -73,10 +74,11 @@ public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[st
                     innerScope[arg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: arg.type, isMutable: true)
                 end
             end
-            inferBlock(block: stmt.block, outerScope: innerScope, forClass: stmt.kind = ClassStatement)
+            inferBlock(block: stmt.block, outerScope: innerScope, owner: stmt)
         elseif stmt.kind = LetStatement or stmt.kind = ConstStatement
             if stmt.value <> nil
-                inferExpressionType(expr: stmt.value!, scope)
+                resolveType(type: stmt.type, scope)
+                inferExpressionType(expr: stmt.value!, scope, impliedType: stmt.type)
             end
             if stmt.type.kind = unknownType
                 stmt.type := inferExpressionType(expr: stmt.value!, scope)
@@ -93,13 +95,13 @@ public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[st
             end
         elseif stmt.kind = ReturnStatement
             if stmt.value <> nil
-                stmt.value.type := inferExpressionType(expr: stmt.value!, scope)
+                stmt.value.type := inferExpressionType(expr: stmt.value!, scope, impliedType: owner.type)
             end
         elseif stmt.kind = WhileStatement
             inferExpressionType(expr: stmt.value!, scope)
-            inferBlock(block: stmt.block, outerScope: scope, forClass)
+            inferBlock(block: stmt.block, outerScope: scope, owner)
         elseif stmt.kind = RepeatStatement
-            inferBlock(block: stmt.block, outerScope: scope, forClass)
+            inferBlock(block: stmt.block, outerScope: scope, owner)
             inferExpressionType(expr: stmt.value!, scope)
         elseif stmt.kind = ForStatement
             inferExpressionType(expr: stmt.value!, scope)
@@ -109,15 +111,15 @@ public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[st
             end
             const innerScope := cloneScope(scope)
             innerScope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: sequenceType.ref!, isMutable: true)
-            inferBlock(block: stmt.block, outerScope: innerScope, forClass)
+            inferBlock(block: stmt.block, outerScope: innerScope, owner)
         elseif stmt.kind = IfStatement
             inferExpressionType(expr: stmt.value!, scope)
-            inferBlock(block: stmt.block, outerScope: scope, forClass)
+            inferBlock(block: stmt.block, outerScope: scope, owner)
             for ei in stmt.elseIf
                 inferExpressionType(expr: ei.value, scope)
-                inferBlock(block: ei.block, outerScope: scope, forClass)
+                inferBlock(block: ei.block, outerScope: scope, owner)
             end
-            inferBlock(block: stmt.elseBlock!, outerScope: scope, forClass)
+            inferBlock(block: stmt.elseBlock!, outerScope: scope, owner)
         elseif stmt.kind = ExpressionStatement
             inferExpressionType(expr: stmt.value!, scope)
         elseif stmt.kind = AssignStatement
@@ -360,10 +362,10 @@ function getFieldType(classDefinition: Statement, identifier: string): ParsedTyp
     return ParsedType(kind: invalidType)
 end
 
-public function inferBlock(block: Statement[], outerScope: IdentifierOrigin[string], forClass: bool): IdentifierOrigin[string]
+public function inferBlock(block: Statement[], outerScope: IdentifierOrigin[string], owner: Statement^): IdentifierOrigin[string]
     const scope := getBlockDefinitions(block, outerScope)
 
-    applyScopeToBlock(block, scope, forClass)
+    applyScopeToBlock(block, scope, owner)
 
     return scope
 end
