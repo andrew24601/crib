@@ -3,7 +3,7 @@ import { Parser, class_Statement, StatementKind, Statement, ParsedType, TypeKind
 import { readFileSync, writeFileSync } from "fs";
 import { generateTS } from "./generateTS"
 import { getBlockDefinitions, inferPublicInterface, inferBlock,IdentifierOrigin,  IdentifierOriginKind, class_IdentifierOrigin } from "./infer"
-import { join } from "path"
+import { basename, extname, join } from "path"
 
 interface CribModule {
     path: string;
@@ -135,11 +135,11 @@ load(path)
 const moduleStatement = Statement(StatementKind.ModuleStatement);
 
 for (const m of modules.values()) {
-    inferBlock(m.block, m.scope!, false);
+    inferBlock(m.block, m.scope!, moduleStatement);
 
 //const validator = ResolveTypes(block, initialScope);
 
     const generated = generateTS(m.block);
 
-    writeFileSync(m.path.substring(0, m.path.length - 5) + ".ts", generated.result.join("\n"));
+    writeFileSync("ts/" + basename(m.path, extname(m.path)) + ".ts", generated.result.join("\n"));
 }

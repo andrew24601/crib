@@ -155,7 +155,7 @@ return ParsedType(2, null, null);
 }
 return ParsedType(16, null, null);
 }
-export function inferExpressionType(expr:class_Expression,scope:Map<string,class_IdentifierOrigin>,impliedType:class_ParsedType):class_ParsedType {
+export function inferExpressionType(expr:class_Expression,scope:Map<string,class_IdentifierOrigin>,impliedType:class_ParsedType | null):class_ParsedType {
  // nullable<object<ParsedType>>
 let returnType: class_ParsedType | null = null;
 if (expr.kind == 5) {

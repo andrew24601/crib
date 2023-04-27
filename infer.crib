@@ -147,7 +147,7 @@ function inferPublicExpressionType(expr: Expression, scope: IdentifierOrigin[str
     return ParsedType(kind: unknownType)
 end
 
-function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], impliedType: ParsedType^ := nil): ParsedType
+function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], impliedType: ParsedType^? := nil): ParsedType
     var returnType: ParsedType?
     if expr.kind = Identifier
         if impliedType?.kind = enumType
