@@ -335,6 +335,11 @@ stmt.lhs = value;
 return stmt;
 }
 stmt = Statement(StatementKind.ExpressionStatement);
+if (value.kind == 13) {
+panic("Probably meant to write := here");
+} else if (value.kind != 22) {
+panic("Statement does not do anything with the result of an expression");
+}
 stmt.value = value;
 return stmt;
 }

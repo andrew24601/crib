@@ -301,6 +301,13 @@ class Parser(tokeniser: Tokeniser, world: World)
         end
 
         stmt := Statement(kind: StatementKind.ExpressionStatement)
+
+        if value.kind = Equals
+            panic(message: "Probably meant to write := here")
+        elseif value.kind <> Invoke
+            panic(message: "Statement does not do anything with the result of an expression")
+        end
+
         stmt.value := value
         return stmt
     end
