@@ -1,18 +1,14 @@
 import { __index_get, __index_set, __slice, panic } from "./runtime"
-import { generateTSImport, importScope } from "./tboot"
+import { generateTSImport } from "./tboot"
 // import goes here
 import { class_Statement, Statement, StatementKind, class_ParsedType, ParsedType, ExpressionKind, TypeKind, class_Expression, Expression, class_DefnArgument, DefnArgument} from "./parser"
 // import goes here
 import { IdentifierOriginKind} from "./infer"
-export function generateTS(block:class_Statement[]) {
+export function generateTS(block:class_Statement[]):class_generateTS {
 const _o = {} as class_generateTS;
- // array<string>
 _o.result = [];
 _o.result.push('import { __index_get, __index_set, __slice, panic } from "./runtime"');
-_o.result.push('import { generateTSImport, importScope } from "./tboot"');
-function dumpType(type:class_ParsedType):void {
-_o.result.push(" // " + formatParsedType(type));
-}
+_o.result.push('import { generateTSImport } from "./tboot"');
 function getInitValue(expr:class_Expression | null,type:class_ParsedType | null):string {
 if (expr != null) {
 return generateJSExpression(expr);
@@ -29,21 +25,17 @@ return "null";
 }
 }
 function generateBlock(block:class_Statement[],forClass:boolean,atRoot:boolean):void {
- // string
 let exportClassifier: string = "";
 if (atRoot) {
 exportClassifier = "export ";
 }
 for (const stmt of block) {
 if (stmt.kind == 0 || stmt.kind == 1) {
- // string
 const initValue: string = getInitValue(stmt.value, stmt.type);
- // string
 let declaration: string = "let";
 if (stmt.kind == 0) {
 declaration = "const";
 }
-dumpType(stmt.type);
 if (forClass && stmt.isPublic) {
 _o.result.push("_o." + stmt.identifier + " = " + initValue + ";");
 } else if (stmt.type != null) {
@@ -94,7 +86,13 @@ _o.result.push(generateJSExpression(stmt.lhs!.left!) + "[" + generateJSExpressio
 _o.result.push(generateJSExpression(stmt.lhs!) + " = " + generateJSExpression(stmt.value!) + ";");
 }
 } else if (stmt.kind == 3) {
-_o.result.push(exportClassifier + "function " + stmt.identifier + "(" + generateDefnArguments(stmt.defnArguments) + ") {");
+let prefix: string = "";
+let returnDecl: string = "class_" + stmt.identifier;
+if (stmt.async) {
+prefix = "async ";
+returnDecl = "Promise<" + returnDecl + ">";
+}
+_o.result.push(exportClassifier + prefix + "function " + stmt.identifier + "(" + generateDefnArguments(stmt.defnArguments) + "):" + returnDecl + " {");
 _o.result.push("const _o = {} as class_" + stmt.identifier + ";");
 for (const arg of stmt.defnArguments) {
 if (arg.isPublic) {
@@ -106,7 +104,13 @@ _o.result.push("return _o;");
 _o.result.push("}");
 generateTSInterface(stmt);
 } else if (stmt.kind == 4) {
-_o.result.push(exportClassifier + "function " + stmt.identifier + "(" + generateDefnArguments(stmt.defnArguments) + "):" + generateTSType(stmt.type) + " {");
+let prefix: string = "";
+let returnDecl: string = generateTSType(stmt.type);
+if (stmt.async) {
+prefix = "async ";
+returnDecl = "Promise<" + returnDecl + ">";
+}
+_o.result.push(exportClassifier + prefix + "function " + stmt.identifier + "(" + generateDefnArguments(stmt.defnArguments) + "):" + returnDecl + " {");
 generateBlock(stmt.block, false, false);
 _o.result.push("}");
 if (forClass && stmt.isPublic) {
@@ -210,7 +214,12 @@ return "_o." + expr.value!;
 return expr.value!;
 }
 } else if (expr.kind == 22) {
-return generateJSExpression(expr.left!) + "(" + generateNamedArguments(expr.left!.type, expr.indexes, expr.identifiers) + ")";
+const functionDecl: class_Statement = expr.left!.type.stmt!;
+let prefix: string = "";
+if (functionDecl.async) {
+prefix = "await ";
+}
+return prefix + generateJSExpression(expr.left!) + "(" + generateNamedArguments(expr.left!.type, expr.indexes, expr.identifiers) + ")";
 } else if (expr.kind == 25) {
 return "__slice(" + generateJSExpression(expr.left!) + ", " + generateArguments(expr.indexes) + ")";
 } else if (expr.kind == 23) {
@@ -278,9 +287,7 @@ export function generateDefnArguments(args:class_DefnArgument[]):string {
 if (args.length == 0) {
 return "";
 }
- // string
 let result: string = generateDefnArgument(args[0]);
- // int
 let idx: number = 1;
 while (idx < args.length) {
 result = result + "," + generateDefnArgument(args[idx]);
@@ -292,7 +299,6 @@ export function generateNamedArguments(type:class_ParsedType,args:class_Expressi
 if (type.kind != 12 && type.kind != 9) {
 panic("not a function type");
 }
- // array<object<DefnArgument>>
 const defnArguments: class_DefnArgument[] = type.stmt!.defnArguments;
 if (defnArguments.length == 0) {
 return "";
@@ -301,9 +307,7 @@ function generateClosureParams(args:class_DefnArgument[]):string {
 if (args.length == 0) {
 return "";
 }
- // string
 let result: string = args[0].identifier;
- // int
 let idx: number = 1;
 while (idx < args.length) {
 result = result + "," + args[idx].identifier;
@@ -312,9 +316,7 @@ idx = idx + 1;
 return result;
 }
 function generateArg(idx:number):string {
- // object<ParsedType>
 const argType: class_ParsedType = defnArguments[idx].type;
- // int
 let aidx: number = 0;
 while (aidx < argNames.length) {
 if (argNames[aidx] == defnArguments[idx].identifier) {
@@ -331,20 +333,15 @@ return generateJSExpression(defnArguments[idx].value!);
 panic("missing argument " + defnArguments[idx].identifier + " in call to " + type.stmt!.identifier!);
 return "";
 }
- // string
 let result: string = generateArg(0);
- // int
 let idx: number = 1;
 while (idx < defnArguments.length) {
 result = result + ", " + generateArg(idx);
 idx = idx + 1;
 }
- // int
 let aidx: number = 0;
 while (aidx < argNames.length) {
- // bool
 let found: boolean = false;
- // int
 let didx: number = 0;
 while (didx < defnArguments.length) {
 if (argNames[aidx] == defnArguments[didx].identifier) {
@@ -363,9 +360,7 @@ export function generateArguments(args:class_Expression[]):string {
 if (args.length == 0) {
 return "";
 }
- // string
 let result: string = generateJSExpression(args[0]);
- // int
 let idx: number = 1;
 while (idx < args.length) {
 result = result + ", " + generateJSExpression(args[idx]);
@@ -374,9 +369,7 @@ idx = idx + 1;
 return result;
 }
 export function generateJSEnumValues(stmt:class_Statement):string {
- // string
 let result: string = stmt.identifierList[0];
- // int
 let idx: number = 1;
 while (idx < stmt.identifierList.length) {
 result = result + ", " + stmt.identifierList[idx];

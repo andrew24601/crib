@@ -1,5 +1,5 @@
 import { __index_get, __index_set, __slice, panic } from "./runtime"
-import { generateTSImport, importScope } from "./tboot"
+import { generateTSImport } from "./tboot"
 export enum Token {
 tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret, tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign, tkAnd, tkOr, tkConst, tkVar, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString, tkImport, tkFrom, tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkIn, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang, tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals, tkLeftBrace, tkRightBrace, tkEOF, tkInvalid
 };
@@ -18,21 +18,14 @@ return ch >= 48 && ch <= 57 || ch >= 65 && ch <= 90 || ch >= 97 && ch <= 122 || 
 export function isDigit(ch:number):boolean {
 return ch >= 48 && ch <= 57;
 }
-export function Tokeniser(text:string) {
+export function Tokeniser(text:string):class_Tokeniser {
 const _o = {} as class_Tokeniser;
- // int
 const length: number = text.length;
- // int
 let pos: number = 0;
- // int
 let tokenStart: number = 0;
- // bool
 let hasPutback: boolean = false;
- // nullable<unknown>
 let lastToken: Token | null = null;
- // int
 _o.line = 1;
- // int
 let lineStart: number = 1;
 function nextToken():Token {
 if (hasPutback) {
@@ -60,7 +53,6 @@ return pos - tokenStart;
 }
 _o.tokenLength = tokenLength;
 function parseNextToken():Token {
- // nullable<string>
 let ident: string | null = null;
 while (pos < length && isWhitespace(text.charCodeAt(pos))) {
 if (text.charCodeAt(pos) == 10) {
@@ -73,7 +65,6 @@ if (pos == length) {
 return 59;
 }
 tokenStart = pos;
- // int
 let ch: number = text.charCodeAt(pos);
 pos = pos + 1;
 if (isLeadingIdentifier(ch)) {
@@ -151,7 +142,6 @@ pos = pos + 1;
 }
 return 4;
 }
- // unknown
 let match: Token = 60;
 if (ch == 40) {
 match = 8;

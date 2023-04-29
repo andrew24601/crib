@@ -1,15 +1,11 @@
-import Statement, StatementKind, ParsedType, ExpressionKind, TypeKind, Expression, DefnArgument from ./parser
-import IdentifierOriginKind from ./infer
+import Statement, StatementKind, ParsedType, ExpressionKind, TypeKind, Expression, DefnArgument from "./parser"
+import IdentifierOriginKind from "./infer"
 
 class generateTS(block:Statement[]^)
     public const result:string[]
 
     result.push(value: 'import { __index_get, __index_set, __slice, panic } from "./runtime"')
-    result.push(value: 'import { generateTSImport, importScope } from "./tboot"')
-
-    function dumpType(type: ParsedType^)
-        result.push(value: " // " + formatParsedType(type))
-    end
+    result.push(value: 'import { generateTSImport } from "./tboot"')
 
     function getInitValue(expr: Expression?, type: ParsedType?): string
         if expr <> nil
@@ -43,7 +39,6 @@ class generateTS(block:Statement[]^)
                     declaration := "const"
                 end
 
-                dumpType(type: stmt.type)
                 if forClass and stmt.isPublic
                     result.push(value: "_o." + stmt.identifier + " = " + initValue + ";")
                 elseif stmt.type <> nil
@@ -95,7 +90,13 @@ class generateTS(block:Statement[]^)
                     result.push(value: generateJSExpression(expr: stmt.lhs!) + " = " + generateJSExpression(expr: stmt.value!) + ";")
                 end
             elseif stmt.kind = ClassStatement
-                result.push(value: exportClassifier + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + ") {")
+                var prefix := ""
+                var returnDecl := "class_" + stmt.identifier
+                if stmt.async
+                    prefix := "async "
+                    returnDecl := "Promise<" + returnDecl + ">"
+                end
+                result.push(value: exportClassifier + prefix + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + "):" + returnDecl + " {")
                 result.push(value: "const _o = {} as class_" + stmt.identifier + ";")
 
                 for arg in stmt.defnArguments
@@ -110,7 +111,13 @@ class generateTS(block:Statement[]^)
                 result.push(value: "}")
                 generateTSInterface(definition: stmt)
             elseif stmt.kind = FunctionStatement
-                result.push(value: exportClassifier + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + "):" + generateTSType(type: stmt.type) + " {")
+                var prefix := ""
+                var returnDecl := generateTSType(type: stmt.type)
+                if stmt.async
+                    prefix := "async "
+                    returnDecl := "Promise<" + returnDecl + ">"
+                end
+                result.push(value: exportClassifier + prefix + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + "):" + returnDecl + " {")
     
                 generateBlock(block: stmt.block, forClass: false, atRoot: false)
     
@@ -223,7 +230,12 @@ function generateJSExpression(expr: Expression^):string
             return expr.value!
         end
     elseif expr.kind = Invoke
-        return generateJSExpression(expr: expr.left!) + "(" + generateNamedArguments(type: expr.left!.type, args: expr.indexes, argNames: expr.identifiers) + ")"
+        const functionDecl := expr.left!.type.stmt!
+        var prefix := ""
+        if functionDecl.async
+            prefix := "await "
+        end
+        return prefix + generateJSExpression(expr: expr.left!) + "(" + generateNamedArguments(type: expr.left!.type, args: expr.indexes, argNames: expr.identifiers) + ")"
     elseif expr.kind = Slice
         return "__slice(" + generateJSExpression(expr: expr.left!) + ", " + generateArguments(args: expr.indexes) + ")"
     elseif expr.kind = Index

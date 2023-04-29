@@ -1,5 +1,5 @@
-import Token, Tokeniser from ./tokeniser
-import IdentifierOrigin from ./infer
+import Token, Tokeniser from "./tokeniser"
+import IdentifierOrigin from "./infer"
 
 public enum StatementKind(ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement,
     ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement, ForRangeStatement, ForRangeExclusiveStatement, ModuleStatement)
@@ -51,9 +51,15 @@ public class Statement(public kind: StatementKind)
     public var identifierList: string[]
     public var defnArguments: DefnArgument[]
     public var isPublic: bool
+    public var async: bool
+    public var referencedBy: bool[Statement]
 end
 
-class Parser(tokeniser: Tokeniser)
+public class World
+    public const allCode: Statement[]
+end
+
+class Parser(tokeniser: Tokeniser, world: World)
     function acceptToken(token: Token): bool
         const tk := tokeniser.nextToken()
         if tk = token
@@ -195,6 +201,8 @@ class Parser(tokeniser: Tokeniser)
             expectToken(expected: tkEnd)
             stmt.isPublic := isPublic
 
+            world.allCode.push(value: stmt)
+
             return stmt
         elseif tk = tkFunction
             stmt := Statement(kind: StatementKind.FunctionStatement)
@@ -213,6 +221,8 @@ class Parser(tokeniser: Tokeniser)
             expectToken(expected: tkEnd)
             stmt.isPublic := isPublic
             stmt.type := type
+
+            world.allCode.push(value: stmt)
 
             return stmt
         elseif tk = tkReturn
@@ -274,20 +284,8 @@ class Parser(tokeniser: Tokeniser)
                 stmt.identifierList.push(value: expectIdentifier())
             end
             expectToken(expected: tkFrom)
-            if acceptToken(token: tkDot)
-                stmt.identifier := "."
-            elseif acceptToken(token: tkRangeInclusive)
-                stmt.identifier := ".."
-            else
-                stmt.identifier := expectIdentifier()
-            end
-            while acceptToken(token: tkSlash)
-                if acceptToken(token: tkRangeInclusive)
-                    stmt.identifier := stmt.identifier + "/.."
-                else
-                    stmt.identifier := stmt.identifier + "/" + expectIdentifier()
-                end
-            end
+            expectToken(expected: tkStringConstant)
+            stmt.identifier := tokeniser.value()
             return stmt
         end
 

@@ -1,5 +1,5 @@
 import { __index_get, __index_set, __slice, panic } from "./runtime"
-import { generateTSImport, importScope } from "./tboot"
+import { generateTSImport } from "./tboot"
 // import goes here
 import { Token, class_Tokeniser, Tokeniser} from "./tokeniser"
 // import goes here
@@ -13,28 +13,19 @@ IntConstant, DoubleConstant, StringConstant, NilConstant, ArrayConstant, Identif
 export enum TypeKind {
 intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, arrayInitType, closureType, unknownType, invalidType
 };
- // object<ParsedType>
 const sharedUnknownType: class_ParsedType = ParsedType(16, null, null);
-export function Expression(kind:ExpressionKind,left:class_Expression | null,right:class_Expression | null,tokeniser:class_Tokeniser | null) {
+export function Expression(kind:ExpressionKind,left:class_Expression | null,right:class_Expression | null,tokeniser:class_Tokeniser | null):class_Expression {
 const _o = {} as class_Expression;
 _o.kind = kind;
 _o.left = left;
 _o.right = right;
- // nullable<string>
 _o.value = null;
- // array<object<Expression>>
 _o.indexes = [];
- // array<string>
 _o.identifiers = [];
- // object<ParsedType>
 _o.type = sharedUnknownType;
- // int
 _o.line = 0;
- // int
 _o.tokenPos = 0;
- // int
 _o.tokenLength = 0;
- // nullable<object<IdentifierOrigin>>
 _o.origin = null;
 if (tokeniser != null) {
 _o.line = tokeniser.line;
@@ -56,14 +47,12 @@ tokenPos:number;
 tokenLength:number;
 origin:class_IdentifierOrigin | null;
 }
-export function ParsedType(kind:TypeKind,ref:class_ParsedType | null,stmt:class_Statement | null) {
+export function ParsedType(kind:TypeKind,ref:class_ParsedType | null,stmt:class_Statement | null):class_ParsedType {
 const _o = {} as class_ParsedType;
 _o.kind = kind;
 _o.ref = ref;
 _o.stmt = stmt;
- // nullable<string>
 _o.identifier = null;
- // nullable<object<ParsedType>>
 _o.mapKeyRef = null;
 return _o;
 }
@@ -74,12 +63,11 @@ stmt:class_Statement | null;
 identifier:string | null;
 mapKeyRef:class_ParsedType | null;
 }
-export function DefnArgument(identifier:string,type:class_ParsedType,isPublic:boolean) {
+export function DefnArgument(identifier:string,type:class_ParsedType,isPublic:boolean):class_DefnArgument {
 const _o = {} as class_DefnArgument;
 _o.identifier = identifier;
 _o.type = type;
 _o.isPublic = isPublic;
- // nullable<object<Expression>>
 _o.value = null;
 return _o;
 }
@@ -89,7 +77,7 @@ type:class_ParsedType;
 isPublic:boolean;
 value:class_Expression | null;
 }
-export function ElseIfClause(value:class_Expression,block:class_Statement[]) {
+export function ElseIfClause(value:class_Expression,block:class_Statement[]):class_ElseIfClause {
 const _o = {} as class_ElseIfClause;
 _o.value = value;
 _o.block = block;
@@ -99,29 +87,21 @@ export interface class_ElseIfClause {
 value:class_Expression;
 block:class_Statement[];
 }
-export function Statement(kind:StatementKind) {
+export function Statement(kind:StatementKind):class_Statement {
 const _o = {} as class_Statement;
 _o.kind = kind;
- // nullable<string>
 _o.identifier = null;
- // object<ParsedType>
 _o.type = sharedUnknownType;
- // nullable<object<Expression>>
 _o.value = null;
- // nullable<object<Expression>>
 _o.lhs = null;
- // array<object<Statement>>
 _o.block = [];
- // array<object<ElseIfClause>>
 _o.elseIf = [];
- // array<object<Statement>>
 _o.elseBlock = [];
- // array<string>
 _o.identifierList = [];
- // array<object<DefnArgument>>
 _o.defnArguments = [];
- // bool
 _o.isPublic = false;
+_o.async = false;
+_o.referencedBy = new Map<class_Statement,boolean>();
 return _o;
 }
 export interface class_Statement {
@@ -136,11 +116,20 @@ elseBlock:class_Statement[];
 identifierList:string[];
 defnArguments:class_DefnArgument[];
 isPublic:boolean;
+async:boolean;
+referencedBy:Map<class_Statement,boolean>;
 }
-export function Parser(tokeniser:class_Tokeniser) {
+export function World():class_World {
+const _o = {} as class_World;
+_o.allCode = [];
+return _o;
+}
+export interface class_World {
+allCode:class_Statement[];
+}
+export function Parser(tokeniser:class_Tokeniser,world:class_World):class_Parser {
 const _o = {} as class_Parser;
 function acceptToken(token:Token):boolean {
- // unknown
 const tk: Token = tokeniser.nextToken();
 if (tk == token) {
 return true;
@@ -149,7 +138,6 @@ tokeniser.putback();
 return false;
 }
 function acceptIdentifierToken(token:Token,text:string):boolean {
- // unknown
 const tk: Token = tokeniser.nextToken();
 if (tk == 0 && tokeniser.value() == text) {
 return true;
@@ -158,7 +146,6 @@ tokeniser.putback();
 return false;
 }
 function expectToken(expected:Token):string {
- // unknown
 const tk: Token = tokeniser.nextToken();
 if (tk != expected) {
 panic("expected " + tokeniser.line);
@@ -169,13 +156,9 @@ function expectIdentifier():string {
 return expectToken(0);
 }
 function parseType():class_ParsedType {
- // bool
 let reference: boolean = false;
- // unknown
 const tk: Token = tokeniser.nextToken();
- // object<ParsedType>
 let type: class_ParsedType = sharedUnknownType;
- // string
 const identifier: string = tokeniser.value();
 if (tk == 30) {
 type = ParsedType(0, null, null);
@@ -207,19 +190,12 @@ return type;
 return type;
 }
 function parseStatement():class_Statement | null {
- // nullable<object<Statement>>
 let stmt: class_Statement | null = null;
- // nullable<string>
 let identifier: string | null = null;
- // object<ParsedType>
 let type: class_ParsedType = sharedUnknownType;
- // nullable<object<Expression>>
 let value: class_Expression | null = null;
- // array<object<Statement>>
 let block: class_Statement[] = [];
- // bool
 let isPublic: boolean = false;
- // unknown
 let tk: Token = tokeniser.nextToken();
 if (tk == 27 || tk == 28 || tk == 29 || tk == 40 || tk == 59) {
 tokeniser.putback();
@@ -275,6 +251,7 @@ stmt.defnArguments = parseDefnArguments();
 stmt.block = parseBlock();
 expectToken(29);
 stmt.isPublic = isPublic;
+world.allCode.push(stmt);
 return stmt;
 } else if (tk == 6) {
 stmt = Statement(StatementKind.FunctionStatement);
@@ -291,6 +268,7 @@ stmt.block = parseBlock();
 expectToken(29);
 stmt.isPublic = isPublic;
 stmt.type = type;
+world.allCode.push(stmt);
 return stmt;
 } else if (tk == 7) {
 stmt = Statement(5);
@@ -344,20 +322,8 @@ while (acceptToken(11)) {
 stmt.identifierList.push(expectIdentifier());
 }
 expectToken(35);
-if (acceptToken(16)) {
-stmt.identifier = ".";
-} else if (acceptToken(19)) {
-stmt.identifier = "..";
-} else {
-stmt.identifier = expectIdentifier();
-}
-while (acceptToken(51)) {
-if (acceptToken(19)) {
-stmt.identifier = stmt.identifier + "/..";
-} else {
-stmt.identifier = stmt.identifier + "/" + expectIdentifier();
-}
-}
+expectToken(4);
+stmt.identifier = tokeniser.value();
 return stmt;
 }
 tokeniser.putback();
@@ -373,9 +339,7 @@ stmt.value = value;
 return stmt;
 }
 function parseBlock():class_Statement[] {
- // array<object<Statement>>
 const result: class_Statement[] = [];
- // nullable<object<Statement>>
 let stmt: class_Statement | null = parseStatement();
 while (stmt != null) {
 result.push(stmt);
@@ -385,17 +349,13 @@ return result;
 }
 _o.parseBlock = parseBlock;
 function parseDefnArgument():class_DefnArgument {
- // bool
 let isPublic: boolean = false;
 if (acceptToken(44)) {
 isPublic = true;
 }
- // string
 const identifier: string = expectIdentifier();
 expectToken(21);
- // object<ParsedType>
 const type: class_ParsedType = parseType();
- // object<DefnArgument>
 const arg: class_DefnArgument = DefnArgument(identifier, type, isPublic);
 if (acceptToken(22)) {
 arg.value = parseExpression();
@@ -403,7 +363,6 @@ arg.value = parseExpression();
 return arg;
 }
 function parseDefnArguments():class_DefnArgument[] {
- // array<object<DefnArgument>>
 const result: class_DefnArgument[] = [];
 if (acceptToken(9)) {
 return result;
@@ -416,9 +375,7 @@ expectToken(9);
 return result;
 }
 function parseExpression():class_Expression {
- // object<Expression>
 let left: class_Expression = parseAndExpression();
- // unknown
 let tk: Token = tokeniser.nextToken();
 while (tk == 24) {
 left = Expression(18, left, parseAndExpression(), null);
@@ -428,9 +385,7 @@ tokeniser.putback();
 return left;
 }
 function parseAndExpression():class_Expression {
- // object<Expression>
 let left: class_Expression = parseComparisonExpression();
- // unknown
 let tk: Token = tokeniser.nextToken();
 while (tk == 23) {
 left = Expression(17, left, parseComparisonExpression(), null);
@@ -440,9 +395,7 @@ tokeniser.putback();
 return left;
 }
 function parseComparisonExpression():class_Expression {
- // object<Expression>
 let left: class_Expression = parseAddSub();
- // unknown
 let tk: Token = tokeniser.nextToken();
 if (tk == 54) {
 left = Expression(11, left, parseAddSub(), null);
@@ -462,9 +415,7 @@ tokeniser.putback();
 return left;
 }
 function parseAddSub():class_Expression {
- // object<Expression>
 let left: class_Expression = parseTerm();
- // unknown
 let tk: Token = tokeniser.nextToken();
 while (tk == 48 || tk == 49) {
 if (tk == 48) {
@@ -478,9 +429,7 @@ tokeniser.putback();
 return left;
 }
 function parseTerm():class_Expression {
- // object<Expression>
 let left: class_Expression = parseFactor();
- // unknown
 let tk: Token = tokeniser.nextToken();
 while (tk == 50 || tk == 51) {
 if (tk == 50) {
@@ -494,13 +443,9 @@ tokeniser.putback();
 return left;
 }
 function parseFactor():class_Expression {
- // unknown
 const tk: Token = tokeniser.nextToken();
- // nullable<object<Expression>>
 let e: class_Expression | null = null;
- // nullable<object<Expression>>
 let p: class_Expression | null = null;
- // nullable<string>
 let ident: string | null = null;
 if (tk == 1) {
 e = Expression(0, null, null, tokeniser);

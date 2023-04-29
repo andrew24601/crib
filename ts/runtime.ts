@@ -1,3 +1,5 @@
+import { readFile as fsReadFile } from "fs";
+
 export function __index_get(arr:any, idx: number) {
     if (typeof arr === "string")
         return arr.charCodeAt(idx);
@@ -19,4 +21,15 @@ export function __slice(arr:any, start:number, end:number) {
 export function panic(message: string) {
     console.log(message);
     throw new Error(message);
+}
+
+export async function readFile(path: string): Promise<string> {
+    return new Promise((resolve, reject)=>{
+        fsReadFile(path, "utf-8", (err: any, data: any) => {
+            if (err) {
+                reject(err);
+            }
+            resolve(data);
+        });
+    });
 }
