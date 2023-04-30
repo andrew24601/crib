@@ -17,7 +17,7 @@ class generateTS(block:Statement[]^)
         elseif type?.kind = boolType
             return "false"
         elseif type?.kind = mapType
-            return "new " + generateTSType(type: type!) + "()"
+            return "new Map()"
         else
             return "null"
         end
@@ -41,8 +41,6 @@ class generateTS(block:Statement[]^)
 
                 if forClass and stmt.isPublic
                     result.push(value: "_o." + stmt.identifier + " = " + initValue + ";")
-                elseif stmt.type <> nil
-                    result.push(value: declaration + " " + stmt.identifier + ": " + generateTSType(type: stmt.type) + " = " + initValue + ";")
                 else
                     result.push(value: declaration + " " + stmt.identifier + " = " + initValue + ";")
                 end
@@ -91,13 +89,11 @@ class generateTS(block:Statement[]^)
                 end
             elseif stmt.kind = ClassStatement
                 var prefix := ""
-                var returnDecl := "class_" + stmt.identifier
                 if stmt.async
                     prefix := "async "
-                    returnDecl := "Promise<" + returnDecl + ">"
                 end
-                result.push(value: exportClassifier + prefix + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + "):" + returnDecl + " {")
-                result.push(value: "const _o = {} as class_" + stmt.identifier + ";")
+                result.push(value: exportClassifier + prefix + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + ")" + " {")
+                result.push(value: "const _o = {};")
 
                 for arg in stmt.defnArguments
                     if arg.isPublic
@@ -109,15 +105,12 @@ class generateTS(block:Statement[]^)
 
                 result.push(value: "return _o;")
                 result.push(value: "}")
-                generateTSInterface(definition: stmt)
             elseif stmt.kind = FunctionStatement
                 var prefix := ""
-                var returnDecl := generateTSType(type: stmt.type)
                 if stmt.async
                     prefix := "async "
-                    returnDecl := "Promise<" + returnDecl + ">"
                 end
-                result.push(value: exportClassifier + prefix + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + "):" + returnDecl + " {")
+                result.push(value: exportClassifier + prefix + "function " + stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + ")" + " {")
     
                 generateBlock(block: stmt.block, forClass: false, atRoot: false)
     
@@ -127,7 +120,7 @@ class generateTS(block:Statement[]^)
                     result.push(value: "_o." + stmt.identifier + " = " + stmt.identifier + ";")
                 end
             elseif stmt.kind = EnumStatement
-                result.push(value: "export enum " + stmt.identifier + " {")
+                result.push(value: "export const " + stmt.identifier + " = {")
 
                 result.push(value: generateJSEnumValues(stmt))
 
@@ -145,32 +138,6 @@ class generateTS(block:Statement[]^)
         end
     end
 
-    function generateTSInterface(definition: Statement)
-        if definition.kind = ClassStatement
-            result.push(value: "export interface class_" + definition.identifier + " {")
-    
-            for arg in definition.defnArguments
-                if arg.isPublic
-                    result.push(value: arg.identifier + ":" + generateTSType(type: arg.type) + ";")
-                end
-            end
-    
-            for stmt in definition.block
-                if stmt.kind = FunctionStatement
-                    if stmt.isPublic
-                        result.push(value: stmt.identifier + "(" + generateDefnArguments(args: stmt.defnArguments) + "):" + generateTSType(type: stmt.type) + ";")
-                    end
-                elseif stmt.kind = LetStatement or stmt.kind = ConstStatement
-                    if stmt.isPublic
-                        result.push(value: stmt.identifier + ":" + generateTSType(type: stmt.type) + ";")
-                    end
-                end
-            end
-    
-            result.push(value: "}")
-        end
-    end
-    
     generateBlock(block, forClass: false, atRoot: true)
 end
 
@@ -214,7 +181,7 @@ function generateJSExpression(expr: Expression^):string
     elseif expr.kind = Not
         return "!" + generateJSExpression(expr: expr.left!)
     elseif expr.kind = Bang
-        return generateJSExpression(expr: expr.left!) + "!"
+        return generateJSExpression(expr: expr.left!)
     elseif expr.kind = IntConstant
         return expr.value!
     elseif expr.kind = NilConstant
@@ -272,45 +239,8 @@ function effectiveType(type: ParsedType) : ParsedType
     return type
 end
 
-function generateTSType(type: ParsedType?): string
-    if type = nil
-        return "any"
-    end
-
-    if type.kind = intType
-        return "number"
-    elseif type.kind = boolType
-        return "boolean"
-    elseif type.kind = stringType
-        return "string"
-    elseif type.kind = arrayType
-        return generateTSType(type: type.ref) + "[]"
-    elseif type.kind = pointerType
-        return generateTSType(type: type.ref)
-    elseif type.kind = nullableType
-        return generateTSType(type: type.ref) + " | null"
-    elseif type.kind = objectType
-        if type.stmt?.kind = ClassStatement
-            return "class_" + type.identifier!
-        elseif type.stmt?.kind = EnumStatement
-            return type.identifier!
-        end
-        return "any"
-    elseif type.kind = mapType
-        return "Map<" + generateTSType(type: type.mapKeyRef) + "," + generateTSType(type: type.ref) + ">"
-    elseif type.kind = functionType
-        return "Function"
-    elseif type.kind = voidType
-        return "void"
-    elseif type.kind = enumType
-        return type.identifier!
-    else
-        return "any"
-    end
-end
-
 function generateDefnArgument(arg: DefnArgument): string
-    return arg.identifier + ":" + generateTSType(type: arg.type)
+    return arg.identifier
 end
 
 function generateDefnArguments(args: DefnArgument[]^): string
@@ -414,11 +344,11 @@ function generateArguments(args: Expression[]^): string
 end
 
 function generateJSEnumValues(stmt: Statement^): string
-    var result := stmt.identifierList[0]
+    var result := stmt.identifierList[0] + ": 0"
 
     var idx := 1
     while idx < stmt.identifierList.length
-        result := result + ", " + stmt.identifierList[idx]
+        result := result + ", " + stmt.identifierList[idx] + ":" + idx
         idx := idx + 1
     end
 

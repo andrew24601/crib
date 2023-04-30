@@ -1,59 +1,59 @@
 import { __index_get, __index_set, __slice, panic } from "./runtime"
 import { generateTSImport } from "./tboot"
-export enum Token {
-tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret, tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign, tkAnd, tkOr, tkConst, tkVar, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString, tkImport, tkFrom, tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkIn, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang, tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals, tkLeftBrace, tkRightBrace, tkTake, tkEOF, tkInvalid
+export const Token = {
+tkIdentifier: 0, tkIntConstant:1, tkBoolConstant:2, tkDoubleConstant:3, tkStringConstant:4, tkClass:5, tkFunction:6, tkReturn:7, tkLeftParen:8, tkRightParen:9, tkSemiColon:10, tkComma:11, tkLeftBracket:12, tkRightBracket:13, tkCaret:14, tkEquals:15, tkDot:16, tkOptDot:17, tkRangeExclusive:18, tkRangeInclusive:19, tkAmpersand:20, tkColon:21, tkAssign:22, tkAnd:23, tkOr:24, tkConst:25, tkVar:26, tkElse:27, tkElseif:28, tkEnd:29, tkInt:30, tkDouble:31, tkBool:32, tkString:33, tkImport:34, tkFrom:35, tkEnum:36, tkIf:37, tkWhile:38, tkRepeat:39, tkUntil:40, tkIn:41, tkFor:42, tkNil:43, tkPublic:44, tkNot:45, tkQuestionMark:46, tkBang:47, tkPlus:48, tkMinus:49, tkTimes:50, tkSlash:51, tkNotEquals:52, tkLessThanEquals:53, tkLessThan:54, tkGreaterThan:55, tkGreaterThanEquals:56, tkLeftBrace:57, tkRightBrace:58, tkTake:59, tkEOF:60, tkInvalid:61
 };
-export function isWhitespace(ch:number):boolean {
+export function isWhitespace(ch) {
 if (ch == 32 || ch == 13 || ch == 10 || ch == 9) {
 return true;
 }
 return false;
 }
-export function isLeadingIdentifier(ch:number):boolean {
+export function isLeadingIdentifier(ch) {
 return ch >= 65 && ch <= 90 || ch >= 97 && ch <= 122 || ch == 95;
 }
-export function isTrailingIdentifier(ch:number):boolean {
+export function isTrailingIdentifier(ch) {
 return ch >= 48 && ch <= 57 || ch >= 65 && ch <= 90 || ch >= 97 && ch <= 122 || ch == 95;
 }
-export function isDigit(ch:number):boolean {
+export function isDigit(ch) {
 return ch >= 48 && ch <= 57;
 }
-export function Tokeniser(text:string):class_Tokeniser {
-const _o = {} as class_Tokeniser;
-const length: number = text.length;
-let pos: number = 0;
-let tokenStart: number = 0;
-let hasPutback: boolean = false;
-let lastToken: Token | null = null;
+export function Tokeniser(text) {
+const _o = {};
+const length = text.length;
+let pos = 0;
+let tokenStart = 0;
+let hasPutback = false;
+let lastToken = null;
 _o.line = 1;
-let lineStart: number = 1;
-function nextToken():Token {
+let lineStart = 1;
+function nextToken() {
 if (hasPutback) {
 hasPutback = false;
-return lastToken!;
+return lastToken;
 }
 lastToken = parseNextToken();
 return lastToken;
 }
 _o.nextToken = nextToken;
-function putback():void {
+function putback() {
 hasPutback = true;
 }
 _o.putback = putback;
-function value():string {
+function value() {
 return __slice(text, tokenStart, pos);
 }
 _o.value = value;
-function start():number {
+function start() {
 return tokenStart - lineStart;
 }
 _o.start = start;
-function tokenLength():number {
+function tokenLength() {
 return pos - tokenStart;
 }
 _o.tokenLength = tokenLength;
-function parseNextToken():Token {
-let ident: string | null = null;
+function parseNextToken() {
+let ident = null;
 while (pos < length && isWhitespace(text.charCodeAt(pos))) {
 if (text.charCodeAt(pos) == 10) {
 _o.line = _o.line + 1;
@@ -65,7 +65,7 @@ if (pos == length) {
 return 60;
 }
 tokenStart = pos;
-let ch: number = text.charCodeAt(pos);
+let ch = text.charCodeAt(pos);
 pos = pos + 1;
 if (isLeadingIdentifier(ch)) {
 while (pos < length && isTrailingIdentifier(text.charCodeAt(pos))) {
@@ -144,7 +144,7 @@ pos = pos + 1;
 }
 return 4;
 }
-let match: Token = 61;
+let match = 61;
 if (ch == 40) {
 match = 8;
 } else if (ch == 41) {
@@ -224,12 +224,4 @@ match = 55;
 return match;
 }
 return _o;
-}
-export interface class_Tokeniser {
-line:number;
-nextToken():Token;
-putback():void;
-value():string;
-start():number;
-tokenLength():number;
 }

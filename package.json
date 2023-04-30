@@ -6,8 +6,8 @@
     },
     "scripts": {
         "build": "tsc -outDir dist -watch",
-        "package": "esbuild ts/tboot.ts --bundle --outfile=dist/crib --platform=node --minify --banner:js='#!/usr/bin/env node' && chmod +x dist/crib",
-        "debug": "esbuild ts/tboot.ts --bundle --outfile=dist/crib --platform=node --sourcemap --banner:js='#!/usr/bin/env node' && chmod +x dist/crib",
+        "package": "esbuild ts/tboot.js --bundle --outfile=dist/crib --platform=node --minify --banner:js='#!/usr/bin/env node' && chmod +x dist/crib",
+        "debug": "esbuild ts/tboot.js --bundle --outfile=dist/crib --platform=node --sourcemap --banner:js='#!/usr/bin/env node' && chmod +x dist/crib",
         "install": "sudo cp dist/crib /usr/local/bin/crib"
     }
 }

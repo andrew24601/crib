@@ -1,20 +1,13 @@
 import { Tokeniser } from "./tokeniser"
-import { Parser, class_Statement, StatementKind, Statement, ParsedType, TypeKind, class_ParsedType, DefnArgument, class_World, World } from "./parser"
+import { Parser, StatementKind, Statement, ParsedType, TypeKind, DefnArgument, World } from "./parser"
 import { readFileSync, writeFileSync } from "fs";
 import { generateTS } from "./generateTS"
-import { getBlockDefinitions, inferPublicInterface, inferBlock,IdentifierOrigin,  IdentifierOriginKind, class_IdentifierOrigin, inferAsync } from "./infer"
+import { getBlockDefinitions, inferPublicInterface, inferBlock,IdentifierOrigin,  IdentifierOriginKind, inferAsync } from "./infer"
 import { basename, extname, join } from "path"
 
-interface CribModule {
-    path: string;
-    block: class_Statement[];
-    definitions: Map<string, class_IdentifierOrigin>;
-    scope?: Map<string, class_IdentifierOrigin>;
-}
+let world
 
-let world: class_World
-
-function parseModule(path: string): class_Statement[] {
+function parseModule(path) {
     const text = readFileSync(path, "utf-8");
     const tokeniser = Tokeniser(text);
     const parser = Parser(tokeniser, world);
@@ -22,22 +15,20 @@ function parseModule(path: string): class_Statement[] {
     return block;
 }
 
-type IntrinsicModule = {[index: string]: class_Statement};
-
-const intrinsicModules: {[index: string]: IntrinsicModule} = {
+const intrinsicModules = {
     "fs": {
         "readFile": intrinsicAsyncFunction("readFile", ParsedType(TypeKind.stringType, null, null), {path: ParsedType(TypeKind.stringType, null, null)})
     }
 }
 
-function intrinsicFunction(name: string, type: class_ParsedType, params: { [name: string]: class_ParsedType }) {
+function intrinsicFunction(name, type, params) {
     const stmt = Statement(StatementKind.FunctionStatement);
     stmt.identifier = name;
     stmt.type = type;
     return stmt;
 }
 
-function intrinsicAsyncFunction(name: string, type: class_ParsedType, params: { [name: string]: class_ParsedType }) {
+function intrinsicAsyncFunction(name, type, params) {
     const stmt = Statement(StatementKind.FunctionStatement);
     stmt.identifier = name;
     stmt.type = type;
@@ -51,8 +42,8 @@ function intrinsicAsyncFunction(name: string, type: class_ParsedType, params: { 
 }
 
 
-export function generateTSImport(stmt: class_Statement) {
-    const path = stmt.identifier!.substring(1, stmt.identifier!.length - 1)
+export function generateTSImport(stmt) {
+    const path = stmt.identifier.substring(1, stmt.identifier.length - 1)
 
     if (!path.startsWith(".")) {
         return `import { ${stmt.identifierList.join(", ")}} from "./runtime"`
@@ -60,12 +51,12 @@ export function generateTSImport(stmt: class_Statement) {
     }
 
     const module = parseModule("./" + path + ".crib")
-    const exports = new Map<string, class_Statement>();
-    const imports: string[] = [];
+    const exports = new Map();
+    const imports = [];
 
     for (const stmt of module) {
         if (stmt.kind === StatementKind.FunctionStatement || stmt.kind === StatementKind.ClassStatement || stmt.kind === StatementKind.EnumStatement) {
-            exports.set(stmt.identifier!, stmt)
+            exports.set(stmt.identifier, stmt)
         }
     }
 
@@ -77,30 +68,28 @@ export function generateTSImport(stmt: class_Statement) {
         if (!defn.isPublic) {
             console.log(`Module ${stmt.identifier} does not export ${ident} publicly`)
         }
-        if (defn.kind === StatementKind.ClassStatement)
-            imports.push("class_" + ident);
         imports.push(ident);
     }
 
     return `import { ${imports.join(", ")}} from "${path}"`
 }
 
-const modules = new Map<string, CribModule>();
+const modules = new Map();
 
 const systemModule = Statement(StatementKind.ModuleStatement)
 
 world = World();
 
-function load(path: string) {
-    const loading: CribModule[] = [];
+function load(path) {
+    const loading = [];
     
-    function loadModule(path: string):CribModule {
+    function loadModule(path) {
         if (modules.has(path)) {
-            return modules.get(path)!;
+            return modules.get(path);
         }
         const block = parseModule(path);
         const definitions = getBlockDefinitions(block, null)
-        const module: CribModule = {
+        const module = {
             path,
             block,
             definitions
@@ -112,9 +101,9 @@ function load(path: string) {
 
     const mainModule = loadModule(path);
     while (loading.length > 0) {
-        const module = loading.pop()!;
+        const module = loading.pop();
 
-        const moduleScope = new Map<string, class_IdentifierOrigin>();
+        const moduleScope = new Map();
         
         const fakePanicStatement = Statement(StatementKind.FunctionStatement);
         fakePanicStatement.identifier = "panic";
@@ -132,7 +121,7 @@ function load(path: string) {
 
         for (const stmt of module.block) {
             if (stmt.kind === StatementKind.ImportStatement) {
-                const path = stmt.identifier!.substring(1, stmt.identifier!.length - 1)
+                const path = stmt.identifier.substring(1, stmt.identifier.length - 1)
 
                 if (!path.startsWith(".")) {
                     const intrinsic = intrinsicModules[path];
@@ -176,7 +165,7 @@ load(path)
 const moduleStatement = Statement(StatementKind.ModuleStatement);
 
 for (const m of modules.values()) {
-    inferBlock(m.block, m.scope!, moduleStatement);
+    inferBlock(m.block, m.scope, moduleStatement);
 }
 
 inferAsync(world)
@@ -187,5 +176,5 @@ for (const m of modules.values()) {
 
     const generated = generateTS(m.block);
 
-    writeFileSync("ts/" + basename(m.path, extname(m.path)) + ".ts", generated.result.join("\n"));
+    writeFileSync("ts/" + basename(m.path, extname(m.path)) + ".js", generated.result.join("\n"));
 }
