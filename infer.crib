@@ -202,6 +202,12 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], 
     elseif expr.kind = Not
         inferExpressionType(expr: expr.left!, scope, owner)
         expr.type := ParsedType(kind: boolType)
+    elseif expr.kind = Negate
+        inferExpressionType(expr: expr.left!, scope, owner)
+        expr.type := expr.left!.type
+    elseif expr.kind = Take
+        inferExpressionType(expr: expr.left!, scope, owner)
+        expr.type := expr.left!.type
     elseif expr.kind = Equals or expr.kind = NotEquals
         const leftType := inferExpressionType(expr: expr.left!, scope, owner)
         inferExpressionType(expr: expr.right!, scope, impliedType: leftType, owner)

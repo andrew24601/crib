@@ -5,7 +5,7 @@ public enum Token(tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant,
     tkImport, tkFrom,
     tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkIn, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang,
     tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals,
-    tkLeftBrace, tkRightBrace,
+    tkLeftBrace, tkRightBrace,tkTake,
     tkEOF, tkInvalid)
 
 function isWhitespace(ch: int): bool
@@ -135,6 +135,8 @@ public class Tokeniser(text: string^)
                 return tkImport
             elseif ident = "from"
                 return tkFrom
+            elseif ident = "take"
+                return tkTake
             elseif ident = "true" or ident = "false"
                 return tkBoolConstant
             elseif ident = "public"

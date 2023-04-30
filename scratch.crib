@@ -5,7 +5,7 @@ function test
 end
 
 function parser: string
-    const data := readFile(path: "./test.txt")
-    return data
+    var data := readFile(path: "./test.txt")
+    return take data
 end
 

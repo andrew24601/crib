@@ -5,7 +5,7 @@ public enum StatementKind(ConstStatement, LetStatement, EnumStatement, ClassStat
     ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement, ForRangeStatement, ForRangeExclusiveStatement, ModuleStatement)
 
 public enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConstant, ArrayConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract,
-    LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate,
+    LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate, Take,
     Invalid)
 
 public enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, arrayInitType, closureType, unknownType, invalidType)
@@ -434,6 +434,7 @@ class Parser(tokeniser: Tokeniser, world: World)
         var e:Expression?
         var p:Expression?
         var ident: string?
+
         if tk = tkIntConstant
             e := Expression(kind: IntConstant, tokeniser)
             e.value := tokeniser.value()
@@ -453,6 +454,8 @@ class Parser(tokeniser: Tokeniser, world: World)
             e := Expression(kind: Not, left: parseFactor())
         elseif tk = tkMinus
             e := Expression(kind: Negate, left: parseFactor())
+        elseif tk = tkTake
+            e := Expression(kind: Take, left: parseFactor())
         elseif tk = tkBoolConstant
             e := Expression(kind: BoolConstant)
             e.value := tokeniser.value()

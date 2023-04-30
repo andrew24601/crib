@@ -235,6 +235,15 @@ return generateJSExpression(expr.left!) + "[" + generateArguments(expr.indexes) 
 } else {
 return "__index_get(" + generateJSExpression(expr.left!) + ", " + generateArguments(expr.indexes) + ")";
 }
+} else if (expr.kind == 29) {
+const left: class_Expression = expr.left!;
+if (left.kind == 5) {
+return "(__taker=" + generateJSExpression(left) + "," + generateJSExpression(left) + "=null,__taker)";
+} else if (left.kind == 20 || left.kind == 19) {
+return "(__taker2=" + generateJSExpression(left.left!) + ",__taker=__taker2." + left.value + ",__taker2." + left.value + "=null,__taker)";
+} else {
+return "*takeexpression*";
+}
 } else {
 return "*expression*";
 }

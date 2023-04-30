@@ -197,6 +197,12 @@ expr.type = ParsedType(2, null, null);
 } else if (expr.kind == 27) {
 inferExpressionType(expr.left!, scope, null, owner);
 expr.type = ParsedType(2, null, null);
+} else if (expr.kind == 28) {
+inferExpressionType(expr.left!, scope, null, owner);
+expr.type = expr.left!.type;
+} else if (expr.kind == 29) {
+inferExpressionType(expr.left!, scope, null, owner);
+expr.type = expr.left!.type;
 } else if (expr.kind == 13 || expr.kind == 14) {
 const leftType: class_ParsedType = inferExpressionType(expr.left!, scope, null, owner);
 inferExpressionType(expr.right!, scope, leftType, owner);

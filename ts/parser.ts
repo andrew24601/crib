@@ -8,7 +8,7 @@ export enum StatementKind {
 ConstStatement, LetStatement, EnumStatement, ClassStatement, FunctionStatement, ReturnStatement, IfStatement, WhileStatement, ImportStatement, AssignStatement, ExpressionStatement, RepeatStatement, ForStatement, ForRangeStatement, ForRangeExclusiveStatement, ModuleStatement
 };
 export enum ExpressionKind {
-IntConstant, DoubleConstant, StringConstant, NilConstant, ArrayConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate, Invalid
+IntConstant, DoubleConstant, StringConstant, NilConstant, ArrayConstant, Identifier, Multiply, Divide, Modulo, Add, Subtract, LessThan, LessThanEquals, Equals, NotEquals, GreaterThan, GreaterThanEquals, And, Or, OptDot, Dot, Bang, Invoke, Index, IntrinsicType, Slice, BoolConstant, Not, Negate, Take, Invalid
 };
 export enum TypeKind {
 intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, arrayInitType, closureType, unknownType, invalidType
@@ -197,7 +197,7 @@ let value: class_Expression | null = null;
 let block: class_Statement[] = [];
 let isPublic: boolean = false;
 let tk: Token = tokeniser.nextToken();
-if (tk == 27 || tk == 28 || tk == 29 || tk == 40 || tk == 59) {
+if (tk == 27 || tk == 28 || tk == 29 || tk == 40 || tk == 60) {
 tokeniser.putback();
 return null;
 }
@@ -471,6 +471,8 @@ expectToken(9);
 e = Expression(27, parseFactor(), null, null);
 } else if (tk == 49) {
 e = Expression(28, parseFactor(), null, null);
+} else if (tk == 59) {
+e = Expression(29, parseFactor(), null, null);
 } else if (tk == 2) {
 e = Expression(26, null, null, null);
 e.value = tokeniser.value();
@@ -485,7 +487,7 @@ expectToken(13);
 e = Expression(4, null, null, null);
 } else {
 panic("Unexpected token: " + tokeniser.value());
-e = Expression(29, null, null, null);
+e = Expression(30, null, null, null);
 }
 while (true) {
 if (acceptToken(16)) {

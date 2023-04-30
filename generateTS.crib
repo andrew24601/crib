@@ -251,6 +251,15 @@ function generateJSExpression(expr: Expression^):string
         else
             return "__index_get(" + generateJSExpression(expr: expr.left!) + ", " + generateArguments(args: expr.indexes) + ")"
         end
+    elseif expr.kind = Take
+        const left := expr.left!
+        if left.kind = Identifier
+            return "(__taker=" + generateJSExpression(expr: left) + "," + generateJSExpression(expr: left) + "=null,__taker)"
+        elseif left.kind = Dot or left.kind = OptDot
+            return "(__taker2=" + generateJSExpression(expr: left.left!) + ",__taker=__taker2." + left.value + ",__taker2." + left.value + "=null,__taker)"
+        else
+            return "*takeexpression*"
+        end
     else
         return "*expression*"
     end

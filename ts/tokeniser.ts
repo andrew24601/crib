@@ -1,7 +1,7 @@
 import { __index_get, __index_set, __slice, panic } from "./runtime"
 import { generateTSImport } from "./tboot"
 export enum Token {
-tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret, tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign, tkAnd, tkOr, tkConst, tkVar, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString, tkImport, tkFrom, tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkIn, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang, tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals, tkLeftBrace, tkRightBrace, tkEOF, tkInvalid
+tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant, tkStringConstant, tkClass, tkFunction, tkReturn, tkLeftParen, tkRightParen, tkSemiColon, tkComma, tkLeftBracket, tkRightBracket, tkCaret, tkEquals, tkDot, tkOptDot, tkRangeExclusive, tkRangeInclusive, tkAmpersand, tkColon, tkAssign, tkAnd, tkOr, tkConst, tkVar, tkElse, tkElseif, tkEnd, tkInt, tkDouble, tkBool, tkString, tkImport, tkFrom, tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkIn, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang, tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals, tkLeftBrace, tkRightBrace, tkTake, tkEOF, tkInvalid
 };
 export function isWhitespace(ch:number):boolean {
 if (ch == 32 || ch == 13 || ch == 10 || ch == 9) {
@@ -62,7 +62,7 @@ lineStart = pos + 1;
 pos = pos + 1;
 }
 if (pos == length) {
-return 59;
+return 60;
 }
 tokenStart = pos;
 let ch: number = text.charCodeAt(pos);
@@ -120,6 +120,8 @@ return 45;
 return 34;
 } else if (ident == "from") {
 return 35;
+} else if (ident == "take") {
+return 59;
 } else if (ident == "true" || ident == "false") {
 return 2;
 } else if (ident == "public") {
@@ -142,7 +144,7 @@ pos = pos + 1;
 }
 return 4;
 }
-let match: Token = 60;
+let match: Token = 61;
 if (ch == 40) {
 match = 8;
 } else if (ch == 41) {
