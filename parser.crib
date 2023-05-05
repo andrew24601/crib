@@ -60,6 +60,7 @@ public class World
 end
 
 class Parser(tokeniser: Tokeniser, world: World)
+    // Accept a specific token, or put it back and return false
     function acceptToken(token: Token): bool
         const tk := tokeniser.nextToken()
         if tk = token
@@ -78,6 +79,7 @@ class Parser(tokeniser: Tokeniser, world: World)
         return false
     end
 
+    // Require a specific token, or panic
     function expectToken(expected: Token): string
         const tk := tokeniser.nextToken()
         if tk <> expected

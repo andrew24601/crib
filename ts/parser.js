@@ -149,7 +149,7 @@ let value = null;
 let block = [];
 let isPublic = false;
 let tk = tokeniser.nextToken();
-if (tk == 27 || tk == 28 || tk == 29 || tk == 40 || tk == 60) {
+if (tk == 27 || tk == 28 || tk == 29 || tk == 40 || tk == 61) {
 tokeniser.putback();
 return null;
 }

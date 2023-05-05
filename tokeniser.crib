@@ -5,7 +5,7 @@ public enum Token(tkIdentifier, tkIntConstant, tkBoolConstant, tkDoubleConstant,
     tkImport, tkFrom,
     tkEnum, tkIf, tkWhile, tkRepeat, tkUntil, tkIn, tkFor, tkNil, tkPublic, tkNot, tkQuestionMark, tkBang,
     tkPlus, tkMinus, tkTimes, tkSlash, tkNotEquals, tkLessThanEquals, tkLessThan, tkGreaterThan, tkGreaterThanEquals,
-    tkLeftBrace, tkRightBrace,tkTake,
+    tkLeftBrace, tkRightBrace,tkTake, tkComment,
     tkEOF, tkInvalid)
 
 function isWhitespace(ch: int): bool
@@ -15,18 +15,24 @@ function isWhitespace(ch: int): bool
     return false
 end
 
+// return true if the character is a valid leading identifier character
+// which is a letter or an underscore
 function isLeadingIdentifier(ch: int): bool
     return ch >= 65 and ch <= 90 or ch >= 97 and ch <= 122 or ch = 95
 end
 
+// return true if the character is a valid trailing identifier character
+// which is a letter, a digit or an underscore
 function isTrailingIdentifier(ch: int): bool
     return ch >= 48 and ch <= 57 or ch >= 65 and ch <= 90 or ch >= 97 and ch <= 122 or ch = 95
 end
 
+// return true if the character is a digit
 function isDigit(ch: int) : bool
     return ch >= 48 and ch <= 57
 end
 
+// Tokenise crib source code
 public class Tokeniser(text: string^)
     const length := text.length
     var pos := 0
@@ -36,31 +42,40 @@ public class Tokeniser(text: string^)
     public var line := 1
     var lineStart := 1
 
+    // return the next token
     public function nextToken(): Token
         if hasPutback
             hasPutback := false
             return lastToken!
         end
         lastToken := parseNextToken()
+        while lastToken = tkComment
+            lastToken := parseNextToken()
+        end
         return lastToken
     end
 
+    // put the last token back so that it will be returned by the next call to nextToken
     public function putback()
         hasPutback := true
     end
 
+    // return the value of the current token
     public function value():string
         return text[tokenStart..<pos]
     end
 
+    // return the start position of the current token
     public function start(): int
         return tokenStart - lineStart
     end
 
+    // return the length of the current token
     public function tokenLength(): int
         return pos - tokenStart
     end
 
+    // parse the next token and return it
     function parseNextToken(): Token
         var ident: string?
     
@@ -80,6 +95,14 @@ public class Tokeniser(text: string^)
         var ch := text[pos]
         pos := pos + 1
 
+        if ch = 47 and pos < length and text[pos] = 47
+            pos := pos + 1
+            while pos < length and text[pos] <> 10
+                pos := pos + 1
+            end
+            return tkComment
+        end
+
         if isLeadingIdentifier(ch: ch)
             while pos < length and isTrailingIdentifier(ch: text[pos])
                 pos := pos + 1
@@ -87,6 +110,7 @@ public class Tokeniser(text: string^)
 
             ident := text[tokenStart..<pos]
 
+            // check for keywords
             if ident = "const"
                 return tkConst
             elseif ident = "function"
@@ -187,9 +211,9 @@ public class Tokeniser(text: string^)
         elseif ch = 38
             match := tkAmpersand
         elseif ch = 46
-            if pos < length and text[pos] = 46
+            if pos < length and text[pos] = 46 // ..
                 pos := pos + 1
-                if pos < length and text[pos] = 60
+                if pos < length and text[pos] = 60 // ..<
                     pos := pos + 1
                     match := tkRangeExclusive
                 else
@@ -198,8 +222,8 @@ public class Tokeniser(text: string^)
             else
                 match := tkDot
             end
-        elseif ch = 58
-            if pos < length and text[pos] = 61
+        elseif ch = 58 // :
+            if pos < length and text[pos] = 61 // :=
                 pos := pos + 1
                 match := tkAssign
             else
@@ -222,11 +246,11 @@ public class Tokeniser(text: string^)
             match := tkCaret
         elseif ch = 47
             match := tkSlash
-        elseif ch = 60
-            if pos < length and text[pos] = 61
+        elseif ch = 60 // 
+            if pos < length and text[pos] = 61 // <=
                 pos := pos + 1
                 match := tkLessThanEquals
-            elseif pos < length and text[pos] = 62
+            elseif pos < length and text[pos] = 62 // <>
                 pos := pos + 1
                 match := tkNotEquals
             else

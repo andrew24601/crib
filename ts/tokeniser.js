@@ -1,7 +1,7 @@
 import { __index_get, __index_set, __slice, panic } from "./runtime"
 import { generateTSImport } from "./tboot"
 export const Token = {
-tkIdentifier: 0, tkIntConstant:1, tkBoolConstant:2, tkDoubleConstant:3, tkStringConstant:4, tkClass:5, tkFunction:6, tkReturn:7, tkLeftParen:8, tkRightParen:9, tkSemiColon:10, tkComma:11, tkLeftBracket:12, tkRightBracket:13, tkCaret:14, tkEquals:15, tkDot:16, tkOptDot:17, tkRangeExclusive:18, tkRangeInclusive:19, tkAmpersand:20, tkColon:21, tkAssign:22, tkAnd:23, tkOr:24, tkConst:25, tkVar:26, tkElse:27, tkElseif:28, tkEnd:29, tkInt:30, tkDouble:31, tkBool:32, tkString:33, tkImport:34, tkFrom:35, tkEnum:36, tkIf:37, tkWhile:38, tkRepeat:39, tkUntil:40, tkIn:41, tkFor:42, tkNil:43, tkPublic:44, tkNot:45, tkQuestionMark:46, tkBang:47, tkPlus:48, tkMinus:49, tkTimes:50, tkSlash:51, tkNotEquals:52, tkLessThanEquals:53, tkLessThan:54, tkGreaterThan:55, tkGreaterThanEquals:56, tkLeftBrace:57, tkRightBrace:58, tkTake:59, tkEOF:60, tkInvalid:61
+tkIdentifier: 0, tkIntConstant:1, tkBoolConstant:2, tkDoubleConstant:3, tkStringConstant:4, tkClass:5, tkFunction:6, tkReturn:7, tkLeftParen:8, tkRightParen:9, tkSemiColon:10, tkComma:11, tkLeftBracket:12, tkRightBracket:13, tkCaret:14, tkEquals:15, tkDot:16, tkOptDot:17, tkRangeExclusive:18, tkRangeInclusive:19, tkAmpersand:20, tkColon:21, tkAssign:22, tkAnd:23, tkOr:24, tkConst:25, tkVar:26, tkElse:27, tkElseif:28, tkEnd:29, tkInt:30, tkDouble:31, tkBool:32, tkString:33, tkImport:34, tkFrom:35, tkEnum:36, tkIf:37, tkWhile:38, tkRepeat:39, tkUntil:40, tkIn:41, tkFor:42, tkNil:43, tkPublic:44, tkNot:45, tkQuestionMark:46, tkBang:47, tkPlus:48, tkMinus:49, tkTimes:50, tkSlash:51, tkNotEquals:52, tkLessThanEquals:53, tkLessThan:54, tkGreaterThan:55, tkGreaterThanEquals:56, tkLeftBrace:57, tkRightBrace:58, tkTake:59, tkComment:60, tkEOF:61, tkInvalid:62
 };
 export function isWhitespace(ch) {
 if (ch == 32 || ch == 13 || ch == 10 || ch == 9) {
@@ -33,6 +33,9 @@ hasPutback = false;
 return lastToken;
 }
 lastToken = parseNextToken();
+while (lastToken == 60) {
+lastToken = parseNextToken();
+}
 return lastToken;
 }
 _o.nextToken = nextToken;
@@ -62,11 +65,18 @@ lineStart = pos + 1;
 pos = pos + 1;
 }
 if (pos == length) {
-return 60;
+return 61;
 }
 tokenStart = pos;
 let ch = text.charCodeAt(pos);
 pos = pos + 1;
+if (ch == 47 && pos < length && text.charCodeAt(pos) == 47) {
+pos = pos + 1;
+while (pos < length && text.charCodeAt(pos) != 10) {
+pos = pos + 1;
+}
+return 60;
+}
 if (isLeadingIdentifier(ch)) {
 while (pos < length && isTrailingIdentifier(text.charCodeAt(pos))) {
 pos = pos + 1;
@@ -144,7 +154,7 @@ pos = pos + 1;
 }
 return 4;
 }
-let match = 61;
+let match = 62;
 if (ch == 40) {
 match = 8;
 } else if (ch == 41) {

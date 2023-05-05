@@ -172,14 +172,17 @@ end
 function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], impliedType: ParsedType^? := nil, owner: Statement^): ParsedType
     var returnType: ParsedType?
     if expr.kind = Identifier
-        if impliedType?.kind = enumType
-            const enumDef := impliedType.stmt!
-            const enumValue := enumDef.identifierList.indexOf(value: expr.value!)
-            if enumValue >= 0
-                expr.kind := IntConstant
-                expr.value := "" + enumValue
-                expr.type := ParsedType(kind: enumType, stmt: enumDef)
-                return expr.type
+        if impliedType <> nil
+            const implied := flattenObjectType(type: impliedType)
+            if implied.kind = enumType
+                const enumDef := implied.stmt!
+                const enumValue := enumDef.identifierList.indexOf(value: expr.value!)
+                if enumValue >= 0
+                    expr.kind := IntConstant
+                    expr.value := "" + enumValue
+                    expr.type := ParsedType(kind: enumType, stmt: enumDef)
+                    return expr.type
+                end
             end
         end
 

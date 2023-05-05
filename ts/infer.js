@@ -164,14 +164,17 @@ return ParsedType(16, null, null);
 export function inferExpressionType(expr,scope,impliedType,owner) {
 let returnType = null;
 if (expr.kind == 5) {
-if (impliedType?.kind == 10) {
-const enumDef = impliedType.stmt;
+if (impliedType != null) {
+const implied = flattenObjectType(impliedType);
+if (implied.kind == 10) {
+const enumDef = implied.stmt;
 const enumValue = enumDef.identifierList.indexOf(expr.value);
 if (enumValue >= 0) {
 expr.kind = 0;
 expr.value = "" + enumValue;
 expr.type = ParsedType(10, null, enumDef);
 return expr.type;
+}
 }
 }
 if (scope.has(expr.value)) {
