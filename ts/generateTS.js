@@ -1,5 +1,5 @@
 import { __index_get, __index_set, __slice, panic } from "./runtime"
-import { generateTSImport } from "./tboot"
+import { generateTSImport, generateCImport } from "./tboot"
 // import goes here
 import { Statement, StatementKind, ParsedType, ExpressionKind, TypeKind, Expression, DefnArgument} from "./parser"
 // import goes here
@@ -8,7 +8,7 @@ export function generateTS(block) {
 const _o = {};
 _o.result = [];
 _o.result.push('import { __index_get, __index_set, __slice, panic } from "./runtime"');
-_o.result.push('import { generateTSImport } from "./tboot"');
+_o.result.push('import { generateTSImport, generateCImport } from "./tboot"');
 function getInitValue(expr,type) {
 if (expr != null) {
 return generateJSExpression(expr);

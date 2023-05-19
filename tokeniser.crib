@@ -38,7 +38,7 @@ public class Tokeniser(text: string^)
     var pos := 0
     var tokenStart := 0
     var hasPutback := false
-    var lastToken: Token?
+    var lastToken: Token
     public var line := 1
     var lineStart := 1
 

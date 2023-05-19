@@ -1,5 +1,5 @@
 import { __index_get, __index_set, __slice, panic } from "./runtime"
-import { generateTSImport } from "./tboot"
+import { generateTSImport, generateCImport } from "./tboot"
 export const Token = {
 tkIdentifier: 0, tkIntConstant:1, tkBoolConstant:2, tkDoubleConstant:3, tkStringConstant:4, tkClass:5, tkFunction:6, tkReturn:7, tkLeftParen:8, tkRightParen:9, tkSemiColon:10, tkComma:11, tkLeftBracket:12, tkRightBracket:13, tkCaret:14, tkEquals:15, tkDot:16, tkOptDot:17, tkRangeExclusive:18, tkRangeInclusive:19, tkAmpersand:20, tkColon:21, tkAssign:22, tkAnd:23, tkOr:24, tkConst:25, tkVar:26, tkElse:27, tkElseif:28, tkEnd:29, tkInt:30, tkDouble:31, tkBool:32, tkString:33, tkImport:34, tkFrom:35, tkEnum:36, tkIf:37, tkWhile:38, tkRepeat:39, tkUntil:40, tkIn:41, tkFor:42, tkNil:43, tkPublic:44, tkNot:45, tkQuestionMark:46, tkBang:47, tkPlus:48, tkMinus:49, tkTimes:50, tkSlash:51, tkNotEquals:52, tkLessThanEquals:53, tkLessThan:54, tkGreaterThan:55, tkGreaterThanEquals:56, tkLeftBrace:57, tkRightBrace:58, tkTake:59, tkComment:60, tkEOF:61, tkInvalid:62
 };

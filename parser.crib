@@ -9,6 +9,7 @@ public enum ExpressionKind(IntConstant, DoubleConstant, StringConstant, NilConst
     Invalid)
 
 public enum TypeKind(intType, doubleType, boolType, stringType, objectType, arrayType, mapType, nullableType, pointerType, classType, enumType, enumDefinitionType, functionType, voidType, arrayInitType, closureType, unknownType, invalidType)
+public enum ContextKind(InvalidContext, FrameContext, StackContext)
 
 const sharedUnknownType := ParsedType(kind: unknownType)
 
@@ -53,6 +54,9 @@ public class Statement(public kind: StatementKind)
     public var isPublic: bool
     public var async: bool
     public var referencedBy: bool[Statement]
+    public var parentContext: Statement?
+    public var contextKind: ContextKind
+    public var compileIdentifier: string
 end
 
 public class World
@@ -92,6 +96,8 @@ class Parser(tokeniser: Tokeniser, world: World)
         return expectToken(expected: tkIdentifier)
     end
 
+
+    // parse a type declaration
     function parseType: ParsedType
         var reference := false
         const tk := tokeniser.nextToken()

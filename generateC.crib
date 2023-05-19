@@ -1,0 +1,469 @@
+import Statement, StatementKind, ParsedType, ExpressionKind, TypeKind, Expression, DefnArgument from "./parser"
+import IdentifierOriginKind from "./infer"
+
+class DeferredCode(public stmt: Statement, public context: string)
+end
+
+class generateC(block: Statement[]^, name: string, module: Statement)
+    public const result:string[]
+    public const declarations:string[]
+    public const header:string[]
+    public const deferred:DeferredCode[]
+
+    declarations.push(value: '#include "runtime.h"')
+    declarations.push(value: '#include "' + name + '.h"')
+
+    function getInitValue(expr: Expression?, type: ParsedType?): string
+        if expr <> nil
+            return generateExpression(expr)
+        elseif type?.kind = intType
+            return "0"
+        elseif type?.kind = arrayType
+            return "_new_object_array()"
+        elseif type?.kind = boolType
+            return "false"
+        elseif type?.kind = mapType
+            return "_new_object_map()"
+        else
+            return "null"
+        end
+    end
+
+    function generateBlock(block: Statement[]^, owner: DeferredCode?)
+        const forClass := owner?.stmt.kind = ClassStatement
+        for stmt in block
+            if stmt.kind = ConstStatement or stmt.kind = LetStatement
+                const initValue := getInitValue(expr: stmt.value, type: stmt.type)
+                var declaration := formatParsedType(type: stmt.type)
+
+                if owner <> nil and owner!.stmt.contextKind = FrameContext
+                    result.push(value: "_ctx_" + owner!.stmt.identifier + "->" + stmt.identifier + " = " + initValue + ";")
+                else
+                    result.push(value: declaration + " " + stmt.identifier + " = " + initValue + ";")
+                end
+            elseif stmt.kind = IfStatement
+                result.push(value: "if (" + generateExpression(expr: stmt.value!) + ") {")
+                generateBlock(block: stmt.block, owner)
+
+                for ei in stmt.elseIf
+                    result.push(value: "} else if (" + generateExpression(expr: ei.value) + ") {")
+                    generateBlock(block: ei.block, owner)
+                end
+                if stmt.elseBlock.length > 0
+                    result.push(value: "} else {")
+                    generateBlock(block: stmt.elseBlock, owner)
+                end
+                result.push(value: "}")
+            elseif stmt.kind = WhileStatement
+                result.push(value: "while (" + generateExpression(expr: stmt.value!) + ") {")
+                generateBlock(block: stmt.block, owner)
+                result.push(value: "}")
+            elseif stmt.kind = RepeatStatement
+                result.push(value: "do {")
+                generateBlock(block: stmt.block, owner)
+                result.push(value: "} while (!(" + generateExpression(expr: stmt.value!) + "));")
+            elseif stmt.kind = ForStatement
+                result.push(value: "for (const " + stmt.identifier + " of " + generateExpression(expr: stmt.value!) + ") {")
+                generateBlock(block: stmt.block, owner)
+                result.push(value: "}")
+            elseif stmt.kind = ForRangeStatement
+                result.push(value: "for (let " + stmt.identifier + " = " + generateExpression(expr: stmt.lhs!) + "; " + stmt.identifier + " <= " + generateExpression(expr: stmt.value!) + "; " + stmt.identifier + "++) {")
+                generateBlock(block: stmt.block, owner)
+                result.push(value: "}")
+            elseif stmt.kind = ForRangeExclusiveStatement
+                result.push(value: "for (let " + stmt.identifier + " = " + generateExpression(expr: stmt.lhs!) + "; " + stmt.identifier + " <= " + generateExpression(expr: stmt.value!) + "; " + stmt.identifier + "++) {")
+                generateBlock(block: stmt.block, owner)
+                result.push(value: "}")
+            elseif stmt.kind = AssignStatement
+                if stmt.lhs!.kind = Index
+                    if effectiveType(type: stmt.lhs!.left!.type).kind = mapType
+                        result.push(value: generateExpression(expr: stmt.lhs!.left!) + ".set(" + generateExpression(expr: stmt.lhs!.indexes[0]) + ", " + generateExpression(expr: stmt.value!) + ");")
+                    else
+                        result.push(value: generateExpression(expr: stmt.lhs!.left!) + "[" + generateExpression(expr: stmt.lhs!.indexes[0]) + "] = " + generateExpression(expr: stmt.value!) + ";")
+                    end
+                else
+                    result.push(value: generateExpression(expr: stmt.lhs!) + " = " + generateExpression(expr: stmt.value!) + ";")
+                end
+            elseif stmt.kind = ClassStatement
+                var parent := stmt.parentContext
+                deferred.push(value: DeferredCode(stmt, context: "struct _type_" + parent.identifier + " *_ctx_" + parent.identifier))
+            elseif stmt.kind = FunctionStatement
+                var parent := stmt.parentContext
+                deferred.push(value: DeferredCode(stmt, context: "struct _type_" + parent.identifier + " *_ctx_" + parent.identifier))
+                // if forClass
+                //     deferred.push(value: DeferredCode(stmt, context: "struct _type_" + owner!.stmt.identifier + " *_ctx_" + owner!.stmt.identifier))
+                // else
+                //     deferred.push(value: DeferredCode(stmt, context: "void *__module"))
+                // end
+            elseif stmt.kind = EnumStatement
+                result.push(value: "// enum " + stmt.identifier)
+            elseif stmt.kind = ReturnStatement
+                result.push(value: "return " + generateExpression(expr: stmt.value!) + ";")
+            elseif stmt.kind = ImportStatement
+                declarations.push(value: generateCImport(stmt))
+            elseif stmt.kind = ExpressionStatement
+                result.push(value: generateExpression(expr: stmt.value!) + ";")
+            else
+                result.push(value: "unknown")
+            end
+        end
+    end
+
+    function generateStruct(block: Statement[], context: Statement)
+        for decl in block
+            if decl.kind = ConstStatement or decl.kind = LetStatement
+                header.push(value: "    " + formatParsedType(type: decl.type) + " " + decl.identifier + ";")
+            end
+        end
+
+        var parent := context.parentContext
+        while parent <> nil
+            header.push(value: "    struct _type_" + parent.identifier + " *" + getContextIdentifier(context: parent) + ";")
+            parent := parent.parentContext
+        end
+    end
+
+    function generateParentContext(context: Statement)
+        if context.parentContext <> nil
+            const parent := context.parentContext
+            result.push(value: "struct _type_" + parent.identifier + " *" + getContextIdentifier(context: parent) + " = " + getContextIdentifier(context) + "->" + getContextIdentifier(context: parent) + ";")
+            generateParentContext(context: parent)
+        end
+    end
+
+    function generateFunction(code: DeferredCode)
+        const stmt := code.stmt
+        const name := stmt.identifier
+
+        if stmt.kind = FunctionStatement
+            const funcDecl := formatParsedType(type: stmt.type) + " " + stmt.compileIdentifier + "(" + code.context + generateDefnArguments(args: stmt.defnArguments) + ")"
+            result.push(value: funcDecl + " {")
+            generateParentContext(context: stmt.parentContext)
+            declarations.push(value: funcDecl + ";")
+        elseif stmt.kind = ClassStatement
+            const classType := "struct _type_" + name
+            const classDecl := classType + " *" + stmt.compileIdentifier + "(" + code.context + generateDefnArguments(args: stmt.defnArguments) + ")"
+            result.push(value: classDecl + " {")
+
+            generateParentContext(context: stmt.parentContext)
+
+            result.push(value: "struct _type_" + name + " *_ctx_" + name + " = alloc(sizeof(struct _type_" + name + "));")
+            for arg in stmt.defnArguments
+                result.push(value: "_ctx_" + name + "->" + arg.identifier + " = " + arg.identifier + ";")
+            end
+
+            declarations.push(value: classDecl + ";")
+        end
+
+        generateBlock(block: stmt.block, owner: code)
+
+        if stmt.kind = ClassStatement
+            result.push(value: "return _ctx_" + name + ";")
+        end
+
+        result.push(value: "}")
+        result.push(value: "")
+    end
+    
+    header.push(value: "struct _type_" + name + " {")
+    generateStruct(block, context: module)
+    header.push(value: "};")
+
+    result.push(value: "struct _type_" + name + " *init_" + name + "() {")
+    result.push(value: "struct _type_" + name + " *_ctx_" + name + " = alloc(sizeof(struct _type_" + name + "));")
+
+    generateBlock(block, owner: nil)
+    result.push(value: "return _ctx_" + name + ";")
+    result.push(value: "}")
+
+    for stmt in block
+        if stmt.kind = ClassStatement
+            header.push(value: "struct _type_" + stmt.identifier + " {")
+
+            for arg in stmt.defnArguments
+                header.push(value: "    " + formatParsedType(type: arg.type) + " " + arg.identifier + ";")
+            end
+
+            generateStruct(block: stmt.block, context: stmt)
+            header.push(value: "};")
+        end
+    end
+
+    var idx := 0
+    while idx < deferred.length
+        const code := deferred[idx]
+        idx := idx + 1
+
+        generateFunction(code)
+    end
+end
+
+
+function generateExpression(expr: Expression^):string
+    if expr = nil
+        return "*nil"
+    end
+
+    if expr.type.kind = unknownType and expr.kind <> NilConstant
+        panic(message: "expression not inferred")
+    end
+
+    if expr.kind = LessThan
+        return generateExpression(expr: expr.left!) + " < " + generateExpression(expr: expr.right!)
+    elseif expr.kind = GreaterThan
+        return generateExpression(expr: expr.left!) + " > " + generateExpression(expr: expr.right!)
+    elseif expr.kind = Equals
+        return generateExpression(expr: expr.left!) + " == " + generateExpression(expr: expr.right!)
+    elseif expr.kind = NotEquals
+        return generateExpression(expr: expr.left!) + " != " + generateExpression(expr: expr.right!)
+    elseif expr.kind = GreaterThanEquals
+        return generateExpression(expr: expr.left!) + " >= " + generateExpression(expr: expr.right!)
+    elseif expr.kind = LessThanEquals
+        return generateExpression(expr: expr.left!) + " <= " + generateExpression(expr: expr.right!)
+    elseif expr.kind = Add
+        return generateExpression(expr: expr.left!) + " + " + generateExpression(expr: expr.right!)
+    elseif expr.kind = Subtract
+        return generateExpression(expr: expr.left!) + " - " + generateExpression(expr: expr.right!)
+    elseif expr.kind = Multiply
+        return generateExpression(expr: expr.left!) + " * " + generateExpression(expr: expr.right!)
+    elseif expr.kind = Divide
+        return generateExpression(expr: expr.left!) + " / " + generateExpression(expr: expr.right!)
+    elseif expr.kind = Or
+        return generateExpression(expr: expr.left!) + " || " + generateExpression(expr: expr.right!)
+    elseif expr.kind = And
+        return generateExpression(expr: expr.left!) + " && " + generateExpression(expr: expr.right!)
+    elseif expr.kind = Dot or expr.kind = OptDot
+        if effectiveType(type: expr.left!.type).kind = stringType and expr.value = "length"
+            return "_string_length(" + generateExpression(expr: expr.left!) + ")"
+        end
+        if expr.left!.type.kind = enumDefinitionType
+            const enumDef := expr.left!.type.stmt!
+            const enumValue := enumDef.identifierList.indexOf(value: expr.value!)
+            if enumValue >= 0
+                return "" + enumValue
+            end
+            panic(message: expr.value! + " is not a member of the enumeration")
+        end
+        return generateExpression(expr: expr.left!) + "->" + expr.value
+    elseif expr.kind = Not
+        return "!" + generateExpression(expr: expr.left!)
+    elseif expr.kind = Bang
+        return generateExpression(expr: expr.left!)
+    elseif expr.kind = IntConstant
+        return expr.value!
+    elseif expr.kind = NilConstant
+        return "null"
+    elseif expr.kind = BoolConstant
+        return expr.value!
+    elseif expr.kind = StringConstant
+        return expr.value!
+    elseif expr.kind = Identifier
+        if expr.origin!.context <> nil
+            if expr.origin!.context.contextKind = StackContext
+                return expr.value!
+            else
+                return "_ctx_" + expr.origin!.context.identifier + "->" + expr.value!
+            end
+        elseif expr.origin!.kind = Field or expr.origin!.kind = PrivateField
+            return "this->" + expr.value!
+        else
+            return expr.value!
+        end
+    elseif expr.kind = Invoke
+        const functionDecl := expr.left!.type.stmt!
+
+        if expr.left!.kind = Dot or expr.left!.kind = OptDot
+            return functionDecl.compileIdentifier + "(" + generateExpression(expr: expr.left!.left!) + generateNamedArguments(type: expr.left!.type, args: expr.indexes, argNames: expr.identifiers) + ")"
+        elseif expr.left!.kind = Identifier
+            return functionDecl.compileIdentifier + "(" + getFunctionContext(stmt: functionDecl) + generateNamedArguments(type: expr.left!.type, args: expr.indexes, argNames: expr.identifiers) + ")"
+        end
+
+        return generateExpression(expr: expr.left!) + "(" + generateNamedArguments(type: expr.left!.type, args: expr.indexes, argNames: expr.identifiers) + ")"
+    elseif expr.kind = Slice
+        return "__slice(" + generateExpression(expr: expr.left!) + generateArguments(args: expr.indexes) + ")"
+    elseif expr.kind = Index
+        if expr.indexes.length = 0
+            return "[]"
+        end
+        if effectiveType(type: expr.left!.type).kind = stringType
+            return "_string_char_code_at(" + generateExpression(expr: expr.left!) + generateArguments(args: expr.indexes) + ")"
+        elseif effectiveType(type: expr.left!.type).kind = mapType
+            return generateExpression(expr: expr.left!) + ".get(" + generateArguments(args: expr.indexes) + ")"
+        elseif effectiveType(type: expr.left!.type).kind = arrayType
+            return generateExpression(expr: expr.left!) + "[" + generateArguments(args: expr.indexes) + "]"
+        else
+            return "__index_get(" + generateExpression(expr: expr.left!) + generateArguments(args: expr.indexes) + ")"
+        end
+    elseif expr.kind = Take
+        const left := expr.left!
+        if left.kind = Identifier
+            return "(__taker=" + generateExpression(expr: left) + "," + generateExpression(expr: left) + "=null,__taker)"
+        elseif left.kind = Dot or left.kind = OptDot
+            return "(__taker2=" + generateExpression(expr: left.left!) + ",__taker=__taker2." + left.value + ",__taker2." + left.value + "=null,__taker)"
+        else
+            return "*takeexpression*"
+        end
+    else
+        return "*expression*"
+    end
+end
+
+function getContextIdentifier(context: Statement)
+    return "_ctx_" + context.identifier
+end
+
+function getFunctionContext(stmt: Statement^)
+    if stmt.parentContext = nil
+        return "0"
+    end
+    return getContextIdentifier(context: stmt.parentContext)
+end
+
+function effectiveType(type: ParsedType) : ParsedType
+    if type.kind = pointerType or type.kind = nullableType
+        return effectiveType(type: type.ref!)
+    end
+    return type
+end
+
+function generateDefnArgument(arg: DefnArgument): string
+    return formatParsedType(type: arg.type) + " " + arg.identifier
+end
+
+function generateDefnArguments(args: DefnArgument[]^): string
+
+    var result := ""
+    var idx := 0
+    while idx < args.length
+        result := result + "," + generateDefnArgument(arg: args[idx])
+        idx := idx + 1
+    end
+    return result
+end
+
+function generateNamedArguments(type: ParsedType, args: Expression[], argNames: string[]): string
+    if type.kind <> functionType and type.kind <> classType 
+        panic(message: "not a function type")
+    end
+    const defnArguments := type.stmt!.defnArguments
+
+    if defnArguments.length = 0
+        return ""
+    end
+
+    function generateClosureParams(args: DefnArgument[]^): string
+        if args.length = 0
+            return ""
+        end
+
+        var result := args[0].identifier
+        var idx := 1
+        while idx < args.length
+            result := result + "," + args[idx].identifier
+            idx := idx + 1
+        end
+        return result
+    end
+
+    function generateArg(idx: int): string
+        const argType := defnArguments[idx].type
+        var aidx := 0
+        while aidx < argNames.length
+            if argNames[aidx] = defnArguments[idx].identifier
+                if argType.kind = functionType
+                    return "(" + generateClosureParams(args: argType.stmt!.defnArguments) + ")=>" + generateExpression(expr: args[aidx])
+                end
+
+                return generateExpression(expr: args[aidx])
+            end
+            aidx := aidx + 1
+        end
+
+        if defnArguments[idx].value <> nil
+            return generateExpression(expr: defnArguments[idx].value!)
+        end
+
+        panic(message: "missing argument " + defnArguments[idx].identifier + " in call to " + type.stmt!.identifier!)
+        return ""
+    end
+
+    var result := ""
+
+    var idx := 0
+    while idx < defnArguments.length
+        result := result + ", " + generateArg(idx: idx)
+        idx := idx + 1
+    end
+
+    var aidx := 0
+    while aidx < argNames.length
+        var found := false
+        var didx := 0
+        while didx < defnArguments.length
+            if argNames[aidx] = defnArguments[didx].identifier
+                found := true
+            end
+            didx := didx + 1
+        end
+        if not found
+            panic(message: "unknown argument " + argNames[aidx] + " in call to " + type.stmt!.identifier!)
+        end
+        aidx := aidx + 1
+    end
+
+    return result
+end
+
+function generateArguments(args: Expression[]^): string
+    var result := ""
+    var idx := 0
+    while idx < args.length
+        result := result + ", " + generateExpression(expr: args[idx])
+        idx := idx + 1
+    end
+    return result
+end
+
+function generateJSEnumValues(stmt: Statement^): string
+    var result := stmt.identifierList[0] + ": 0"
+
+    var idx := 1
+    while idx < stmt.identifierList.length
+        result := result + ", " + stmt.identifierList[idx] + ":" + idx
+        idx := idx + 1
+    end
+
+    return result
+end
+
+function formatParsedType(type: ParsedType?): string
+    if type = nil
+        return "no type"
+    elseif type.kind = objectType
+        if type.stmt = nil
+            return "object"
+        else
+            return "struct _type_" + type.stmt.identifier + " *"
+        end
+    elseif type.kind = arrayType
+        return "struct _object_array *"
+    elseif type.kind = mapType
+        return "struct _object_map *"
+    elseif type.kind = stringType
+        return "struct _type_string *"
+    elseif type.kind = intType
+        return "int"
+    elseif type.kind = boolType
+        return "bool"
+    elseif type.kind = voidType
+        return "void"
+    elseif type.kind = enumType
+        return "short"
+    elseif type.kind = pointerType
+        return formatParsedType(type: type.ref)
+    elseif type.kind = nullableType
+        return formatParsedType(type: type.ref)
+    else
+        return "unknown"
+    end
+end

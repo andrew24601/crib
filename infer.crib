@@ -1,8 +1,9 @@
 import World, Statement, StatementKind, ParsedType, TypeKind, Expression, ExpressionKind, DefnArgument from "./parser"
 
-public enum IdentifierOriginKind(Field, Parameter, Class, Enum, Function)
+public enum IdentifierOriginKind(Field, Parameter, Class, Enum, Function, PrivateField)
 
-public class IdentifierOrigin(public kind: IdentifierOriginKind, public type: ParsedType, public isMutable: bool) end
+public class IdentifierOrigin(public kind: IdentifierOriginKind, public type: ParsedType, public isMutable: bool, public context: Statement? := nil)
+end
 
 function cloneScope(scope: IdentifierOrigin[string]?): IdentifierOrigin[string]
     const newScope: IdentifierOrigin[string]
@@ -89,11 +90,26 @@ public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[st
     for stmt in block
         if stmt.kind = ClassStatement or stmt.kind = FunctionStatement
             const innerScope := cloneScope(scope)
+            if owner <> nil
+                owner.contextKind := FrameContext
+            end
+            if stmt.kind = FunctionStatement
+                stmt.contextKind := StackContext
+            else
+                stmt.contextKind := FrameContext
+            end
+            stmt.parentContext := owner
+            stmt.compileIdentifier := owner.compileIdentifier + "_" + stmt.identifier!
+
             for arg in stmt.defnArguments
-                if stmt.kind = ClassStatement and arg.isPublic
-                    innerScope[arg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: arg.type, isMutable: true)
+                if stmt.kind = ClassStatement
+                    if arg.isPublic
+                        innerScope[arg.identifier] := IdentifierOrigin(kind: Field, type: arg.type, isMutable: true, context: stmt)
+                    else
+                        innerScope[arg.identifier] := IdentifierOrigin(kind: PrivateField, type: arg.type, isMutable: true, context: stmt)
+                    end
                 else
-                    innerScope[arg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: arg.type, isMutable: true)
+                    innerScope[arg.identifier] := IdentifierOrigin(kind: Parameter, type: arg.type, isMutable: true, context: stmt)
                 end
             end
             inferBlock(block: stmt.block, outerScope: innerScope, owner: stmt)
@@ -110,10 +126,14 @@ public function applyScopeToBlock(block: Statement[], scope: IdentifierOrigin[st
             else
                 resolveType(type: stmt.type, scope)
             end
-            if forClass and stmt.isPublic
-                scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Field, type: stmt.type, isMutable: stmt.kind = LetStatement)
+            if forClass
+                if stmt.isPublic
+                    scope[stmt.identifier!] := IdentifierOrigin(kind: Field, type: stmt.type, isMutable: stmt.kind = LetStatement, context: owner)
+                else
+                    scope[stmt.identifier!] := IdentifierOrigin(kind: PrivateField, type: stmt.type, isMutable: stmt.kind = LetStatement, context: owner)
+                end
             else
-                scope[stmt.identifier!] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type: stmt.type, isMutable: stmt.kind = LetStatement)
+                scope[stmt.identifier!] := IdentifierOrigin(kind: Parameter, type: stmt.type, isMutable: stmt.kind = LetStatement, context: owner)
             end
         elseif stmt.kind = ReturnStatement
             if stmt.value <> nil
@@ -252,6 +272,7 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], 
             const fakeStmt := Statement(kind: FunctionStatement)
             fakeStmt.type := ParsedType(kind: voidType)
             fakeStmt.defnArguments.push(value: DefnArgument(identifier: "value", type: type.ref!, isPublic: false))
+            fakeStmt.compileIdentifier := "__array_push"
             expr.type := ParsedType(kind: functionType, stmt: fakeStmt)
         elseif type.kind = arrayType and expr.value = "indexOf"
             const fakeStmt := Statement(kind: FunctionStatement)
@@ -337,7 +358,7 @@ function inferExpressionType(expr: Expression, scope: IdentifierOrigin[string], 
                         const lambdaScope := cloneScope(scope)
                         const scopeArgs := defn.type.stmt!.defnArguments
                         for scopeArg in scopeArgs
-                            lambdaScope[scopeArg.identifier] := IdentifierOrigin(kind: IdentifierOriginKind.Parameter, type:scopeArg.type, isMutable: true) 
+                            lambdaScope[scopeArg.identifier] := IdentifierOrigin(kind: Parameter, type:scopeArg.type, isMutable: true) 
                         end
 
                         inferExpressionType(expr: arg, scope: lambdaScope, owner)

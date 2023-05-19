@@ -2,10 +2,12 @@ import { Tokeniser } from "./tokeniser"
 import { Parser, StatementKind, Statement, ParsedType, TypeKind, DefnArgument, World } from "./parser"
 import { readFileSync, writeFileSync } from "fs";
 import { generateTS } from "./generateTS"
+import { generateC } from "./generateC"
 import { getBlockDefinitions, inferPublicInterface, inferBlock,IdentifierOrigin,  IdentifierOriginKind, inferAsync } from "./infer"
 import { basename, extname, join } from "path"
 
 let world
+let target = "js"
 
 function parseModule(path) {
     const text = readFileSync(path, "utf-8");
@@ -41,6 +43,14 @@ function intrinsicAsyncFunction(name, type, params) {
     return stmt;
 }
 
+export function generateCImport(stmt) {
+    const path = stmt.identifier.substring(1, stmt.identifier.length - 1)
+
+    if (!path.startsWith(".")) {
+        return "";
+    }
+    return `#include "${path}.h"`
+}
 
 export function generateTSImport(stmt) {
     const path = stmt.identifier.substring(1, stmt.identifier.length - 1)
@@ -89,10 +99,17 @@ function load(path) {
         }
         const block = parseModule(path);
         const definitions = getBlockDefinitions(block, null)
+        const moduleStatement = Statement(StatementKind.ModuleStatement);
+
+        const name = basename(path, extname(path));
+        moduleStatement.identifier = name;
+        moduleStatement.compileIdentifier = name;
+
         const module = {
             path,
             block,
-            definitions
+            definitions,
+            moduleStatement
         }
         modules.set(path, module);
         loading.push(module);
@@ -109,6 +126,7 @@ function load(path) {
         fakePanicStatement.identifier = "panic";
         fakePanicStatement.type = ParsedType(TypeKind.voidType, null, null);
         fakePanicStatement.defnArguments.push(DefnArgument("message", ParsedType(TypeKind.stringType, null, null), false));
+        fakePanicStatement.compileIdentifier = "__panic";
 
         moduleScope.set("panic", IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(TypeKind.functionType, null, fakePanicStatement), false));
 
@@ -118,6 +136,7 @@ function load(path) {
         fakeImportStatement.defnArguments.push(DefnArgument("stmt", ParsedType(TypeKind.stringType, null, null), false));
 
         moduleScope.set("generateTSImport", IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(TypeKind.functionType, null, fakeImportStatement), false));
+        moduleScope.set("generateCImport", IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(TypeKind.functionType, null, fakeImportStatement), false));
 
         for (const stmt of module.block) {
             if (stmt.kind === StatementKind.ImportStatement) {
@@ -157,15 +176,20 @@ function load(path) {
     return mainModule;
 }
 
-const filename = process.argv[2];
+let idx = 2;
+
+if (process.argv[2].startsWith("--target=")) {
+    target = process.argv[2].substring(9);
+    idx = 3;
+}
+
+const filename = process.argv[idx];
 
 const path = join(process.cwd(), filename);
 load(path)
 
-const moduleStatement = Statement(StatementKind.ModuleStatement);
-
 for (const m of modules.values()) {
-    inferBlock(m.block, m.scope, moduleStatement);
+    inferBlock(m.block, m.scope, m.moduleStatement);
 }
 
 inferAsync(world)
@@ -173,8 +197,15 @@ inferAsync(world)
 for (const m of modules.values()) {
 
 //const validator = ResolveTypes(block, initialScope);
+    const name = basename(m.path, extname(m.path));
 
-    const generated = generateTS(m.block);
+    if (target == "c") {
+        const generated = generateC(m.block, name, m.moduleStatement);
+        writeFileSync("c/" + name + ".c", generated.declarations.join("\n") + "\n" + generated.result.join("\n"));
+        writeFileSync("c/" + name + ".h", generated.header.join("\n"));
+    } else {
+        const generated = generateTS(m.block);
 
-    writeFileSync("ts/" + basename(m.path, extname(m.path)) + ".js", generated.result.join("\n"));
+        writeFileSync("ts/" + name + ".js", generated.result.join("\n"));
+    }
 }

@@ -5,7 +5,7 @@ class generateTS(block:Statement[]^)
     public const result:string[]
 
     result.push(value: 'import { __index_get, __index_set, __slice, panic } from "./runtime"')
-    result.push(value: 'import { generateTSImport } from "./tboot"')
+    result.push(value: 'import { generateTSImport, generateCImport } from "./tboot"')
 
     function getInitValue(expr: Expression?, type: ParsedType?): string
         if expr <> nil

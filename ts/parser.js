@@ -1,5 +1,5 @@
 import { __index_get, __index_set, __slice, panic } from "./runtime"
-import { generateTSImport } from "./tboot"
+import { generateTSImport, generateCImport } from "./tboot"
 // import goes here
 import { Token, Tokeniser} from "./tokeniser"
 // import goes here
@@ -12,6 +12,9 @@ IntConstant: 0, DoubleConstant:1, StringConstant:2, NilConstant:3, ArrayConstant
 };
 export const TypeKind = {
 intType: 0, doubleType:1, boolType:2, stringType:3, objectType:4, arrayType:5, mapType:6, nullableType:7, pointerType:8, classType:9, enumType:10, enumDefinitionType:11, functionType:12, voidType:13, arrayInitType:14, closureType:15, unknownType:16, invalidType:17
+};
+export const ContextKind = {
+InvalidContext: 0, FrameContext:1, StackContext:2
 };
 const sharedUnknownType = ParsedType(16, null, null);
 export function Expression(kind,left,right,tokeniser) {
@@ -72,6 +75,9 @@ _o.defnArguments = [];
 _o.isPublic = false;
 _o.async = false;
 _o.referencedBy = new Map();
+_o.parentContext = null;
+_o.contextKind = null;
+_o.compileIdentifier = null;
 return _o;
 }
 export function World() {

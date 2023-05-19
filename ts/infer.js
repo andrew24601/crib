@@ -1,15 +1,16 @@
 import { __index_get, __index_set, __slice, panic } from "./runtime"
-import { generateTSImport } from "./tboot"
+import { generateTSImport, generateCImport } from "./tboot"
 // import goes here
 import { World, Statement, StatementKind, ParsedType, TypeKind, Expression, ExpressionKind, DefnArgument} from "./parser"
 export const IdentifierOriginKind = {
-Field: 0, Parameter:1, Class:2, Enum:3, Function:4
+Field: 0, Parameter:1, Class:2, Enum:3, Function:4, PrivateField:5
 };
-export function IdentifierOrigin(kind,type,isMutable) {
+export function IdentifierOrigin(kind,type,isMutable,context) {
 const _o = {};
 _o.kind = kind;
 _o.type = type;
 _o.isMutable = isMutable;
+_o.context = context;
 return _o;
 }
 export function cloneScope(scope) {
@@ -26,11 +27,11 @@ export function getBlockDefinitions(block,outerScope) {
 const scope = cloneScope(outerScope);
 for (const stmt of block) {
 if (stmt.kind == 4) {
-scope.set(stmt.identifier, IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(12, null, stmt), false));
+scope.set(stmt.identifier, IdentifierOrigin(IdentifierOriginKind.Function, ParsedType(12, null, stmt), false, null));
 } else if (stmt.kind == 3) {
-scope.set(stmt.identifier, IdentifierOrigin(IdentifierOriginKind.Class, ParsedType(9, null, stmt), false));
+scope.set(stmt.identifier, IdentifierOrigin(IdentifierOriginKind.Class, ParsedType(9, null, stmt), false, null));
 } else if (stmt.kind == 2) {
-scope.set(stmt.identifier, IdentifierOrigin(IdentifierOriginKind.Enum, ParsedType(11, null, stmt), false));
+scope.set(stmt.identifier, IdentifierOrigin(IdentifierOriginKind.Enum, ParsedType(11, null, stmt), false, null));
 }
 }
 return scope;
@@ -84,11 +85,25 @@ inferClassFunctionInterface(scope, stmt);
 for (const stmt of block) {
 if (stmt.kind == 3 || stmt.kind == 4) {
 const innerScope = cloneScope(scope);
-for (const arg of stmt.defnArguments) {
-if (stmt.kind == 3 && arg.isPublic) {
-innerScope.set(arg.identifier, IdentifierOrigin(IdentifierOriginKind.Field, arg.type, true));
+if (owner != null) {
+owner.contextKind = 1;
+}
+if (stmt.kind == 4) {
+stmt.contextKind = 2;
 } else {
-innerScope.set(arg.identifier, IdentifierOrigin(IdentifierOriginKind.Parameter, arg.type, true));
+stmt.contextKind = 1;
+}
+stmt.parentContext = owner;
+stmt.compileIdentifier = owner.compileIdentifier + "_" + stmt.identifier;
+for (const arg of stmt.defnArguments) {
+if (stmt.kind == 3) {
+if (arg.isPublic) {
+innerScope.set(arg.identifier, IdentifierOrigin(0, arg.type, true, stmt));
+} else {
+innerScope.set(arg.identifier, IdentifierOrigin(5, arg.type, true, stmt));
+}
+} else {
+innerScope.set(arg.identifier, IdentifierOrigin(1, arg.type, true, stmt));
 }
 }
 inferBlock(stmt.block, innerScope, stmt);
@@ -105,10 +120,14 @@ panic("Could not infer type of " + stmt.identifier);
 } else {
 resolveType(stmt.type, scope);
 }
-if (forClass && stmt.isPublic) {
-scope.set(stmt.identifier, IdentifierOrigin(IdentifierOriginKind.Field, stmt.type, stmt.kind == 1));
+if (forClass) {
+if (stmt.isPublic) {
+scope.set(stmt.identifier, IdentifierOrigin(0, stmt.type, stmt.kind == 1, owner));
 } else {
-scope.set(stmt.identifier, IdentifierOrigin(IdentifierOriginKind.Parameter, stmt.type, stmt.kind == 1));
+scope.set(stmt.identifier, IdentifierOrigin(5, stmt.type, stmt.kind == 1, owner));
+}
+} else {
+scope.set(stmt.identifier, IdentifierOrigin(1, stmt.type, stmt.kind == 1, owner));
 }
 } else if (stmt.kind == 5) {
 if (stmt.value != null) {
@@ -127,7 +146,7 @@ if (sequenceType.kind != 5) {
 panic("For loop must iterate over an array");
 }
 const innerScope = cloneScope(scope);
-innerScope.set(stmt.identifier, IdentifierOrigin(IdentifierOriginKind.Parameter, sequenceType.ref, true));
+innerScope.set(stmt.identifier, IdentifierOrigin(IdentifierOriginKind.Parameter, sequenceType.ref, true, null));
 inferBlock(stmt.block, innerScope, owner);
 } else if (stmt.kind == 6) {
 inferExpressionType(stmt.value, scope, null, owner);
@@ -241,6 +260,7 @@ expr.type = ParsedType(0, null, null);
 const fakeStmt = Statement(4);
 fakeStmt.type = ParsedType(13, null, null);
 fakeStmt.defnArguments.push(DefnArgument("value", type.ref, false));
+fakeStmt.compileIdentifier = "__array_push";
 expr.type = ParsedType(12, null, fakeStmt);
 } else if (type.kind == 5 && expr.value == "indexOf") {
 const fakeStmt = Statement(4);
@@ -321,7 +341,7 @@ if (defn.type.kind == 12) {
 const lambdaScope = cloneScope(scope);
 const scopeArgs = defn.type.stmt.defnArguments;
 for (const scopeArg of scopeArgs) {
-lambdaScope.set(scopeArg.identifier, IdentifierOrigin(IdentifierOriginKind.Parameter, scopeArg.type, true));
+lambdaScope.set(scopeArg.identifier, IdentifierOrigin(1, scopeArg.type, true, null));
 }
 inferExpressionType(arg, lambdaScope, null, owner);
 } else {
